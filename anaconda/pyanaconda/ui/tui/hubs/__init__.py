@@ -16,11 +16,17 @@
 # License and may only be used or replicated with the express permission of
 # Red Hat, Inc.
 #
+from pyanaconda import ihelp
+from pyanaconda import lifecycle
+from pyanaconda.constants_text import INPUT_PROCESSED, INPUT_DISCARDED
 from pyanaconda.ui.tui import simpleline as tui
-from pyanaconda.ui.tui.tuiobject import TUIObject
+from pyanaconda.ui.tui.tuiobject import TUIObject, HelpScreen
 from pyanaconda.ui import common
 
-from pyanaconda.i18n import _, C_, N_
+from pyanaconda.i18n import _, N_
+
+import logging
+log = logging.getLogger("anaconda")
 
 class TUIHub(TUIObject, common.Hub):
     """Base Hub class implementing the pyanaconda.ui.common.Hub interface.
@@ -74,6 +80,14 @@ class TUIHub(TUIObject, common.Hub):
                 self._keys[self._spoke_count] = spoke
                 self._spokes[spokeClass.__name__] = spoke
 
+        if self._spoke_count:
+            # initialization of all expected spokes has been started, so notify the controller
+            hub_controller = lifecycle.get_controller_by_name(self.__class__.__name__)
+            if hub_controller:
+                hub_controller.all_modules_added()
+            else:
+                log.error("Initialization controller for hub %s expected but missing.", self.__class__.__name__)
+
         # only schedule the hub if it has some spokes
         return self._spoke_count != 0
 
@@ -91,7 +105,7 @@ class TUIHub(TUIObject, common.Hub):
         right = [_prep(i, w) for i, w in self._keys.items() if i % 2 == 0]
 
         c = tui.ColumnWidget([(39, left), (39, right)], 2)
-        self._window.append(c)
+        self._window += [c, ""]
 
         return True
 
@@ -102,17 +116,23 @@ class TUIHub(TUIObject, common.Hub):
         try:
             number = int(key)
             self.app.switch_screen_with_return(self._keys[number])
-            return None
+            return INPUT_PROCESSED
 
         except (ValueError, KeyError):
             # If we get a continue, check for unfinished spokes.  If unfinished
             # don't continue
             # TRANSLATORS: 'c' to continue
-            if key == C_('TUI|Spoke Navigation', 'c'):
+            if key == tui.Prompt.CONTINUE:
                 for spoke in self._spokes.values():
                     if not spoke.completed and spoke.mandatory:
                         print(_("Please complete all spokes before continuing"))
-                        return False
+                        return INPUT_DISCARDED
+            # TRANSLATORS: 'h' to help
+            elif key == tui.Prompt.HELP:
+                if self.has_help:
+                    help_path = ihelp.get_help_path(self.helpFile, self.instclass, True)
+                    self.app.switch_screen_modal(HelpScreen(self.app, help_path))
+                    return INPUT_PROCESSED
             return key
 
     def prompt(self, args=None):
@@ -127,16 +147,12 @@ class TUIHub(TUIObject, common.Hub):
                  to skip further input processing
         :rtype: str|None
         """
+        prompt = super(TUIHub, self).prompt(args)
+
         if self._spoke_count == 1:
-            return _(u"  Please make your choice from [ '1' to enter the %(spoke_title)s spoke | '%(quit)s' to quit |\n"
-                     "  '%(continue)s' to continue | '%(refresh)s' to refresh]: ") % {
-                         'spoke_title': list(self._spokes.values())[0].title,
-                         # TRANSLATORS: 'q' to quit
-                         'quit': C_('TUI|Spoke Navigation', 'q'),
-                         # TRANSLATORS:'c' to continue
-                         'continue': C_('TUI|Spoke Navigation', 'c'),
-                         # TRANSLATORS:'r' to refresh
-                         'refresh': C_('TUI|Spoke Navigation', 'r')
-                     }
-        else:
-            return super(TUIHub, self).prompt(args)
+            prompt.add_option("1", _("to enter the %(spoke_title)s spoke") % list(self._spokes.values())[0].title)
+
+        if self.has_help:
+            prompt.add_help_option()
+
+        return prompt

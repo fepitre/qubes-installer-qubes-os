@@ -75,9 +75,9 @@ different ways:
 
     You can specify what version of the NFS protocol to use by adding ``nfsvers=X``
     to the `options`.
-    
+
     This accepts not just an installable tree directory in the ``<path>`` element,
-    but you can also specify an ``.iso`` file. That ISO file is then mounted and 
+    but you can also specify an ``.iso`` file. That ISO file is then mounted and
     used as the installation tree. This is often used for simulating a standard
     DVD installation using a remote ``DVD.iso`` image.
 
@@ -195,6 +195,18 @@ The header is of the form:
 
 .. [#serial] as read from ``/sys/class/dmi/id/product_serial``
 
+.. inst.ksstrict:
+
+inst.ksstrict
+^^^^^^^^^^^^^^
+
+With this option, all warnings from reading the kickstart file will be
+treated as errors. They will be printed on the output and the installation
+will terminate immediately.
+
+By default, the warnings are printed to logs and the installation
+continues.
+
 Network Options
 ---------------
 
@@ -287,9 +299,20 @@ ifname
 inst.dhcpclass
 ^^^^^^^^^^^^^^
 
-Set the DHCP vendor class identifier [#dhcpd]. Defaults to ``anaconda-$(uname -srm)``.
+Set the DHCP vendor class identifier [#dhcpd]_. Defaults to ``anaconda-$(uname -srm)``.
 
 .. [#dhcpd] ISC ``dhcpd`` will see this value as "option vendor-class-identifier".
+
+.. inst.waitfornet:
+
+inst.waitfornet
+^^^^^^^^^^^^^^^
+
+``inst.waitfornet=<TIMEOUT_IN_SECONDS>``
+    Wait for network connectivity at the beginning of the second stage of
+    installation (after switchroot from early initramfs stage when the installer
+    process is run).
+
 
 Console / Display Options
 -------------------------
@@ -379,6 +402,15 @@ inst.text
 
 Run the installer using a limited text-based UI. Unless you're using a
 kickstart file this probably isn't a good idea; you should use VNC instead.
+
+.. inst.noninteractive
+
+inst.noninteractive
+^^^^^^^^^^^^^^^^^^^
+
+Run the installer in a non-interactive mode. This mode does not allow any
+user interaction and can be used with graphical or text mode. With text
+mode it behaves the same as the ``inst.cmdline`` mode.
 
 .. inst.resolution:
 

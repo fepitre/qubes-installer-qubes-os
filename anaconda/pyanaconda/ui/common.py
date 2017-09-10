@@ -17,17 +17,14 @@
 # Red Hat, Inc.
 #
 
-import os
-import imp
-import inspect
-import sys
-import types
-
 from abc import ABCMeta, abstractproperty
 
 from pyanaconda.constants import ANACONDA_ENVIRON, FIRSTBOOT_ENVIRON
-from pyanaconda.errors import RemovedModuleError
 from pyanaconda import screen_access
+from pyanaconda.iutil import collect
+from pyanaconda.isignal import Signal
+from pyanaconda import lifecycle
+
 from pykickstart.constants import FIRSTBOOT_RECONFIG, DISPLAY_MODE_TEXT
 
 import logging
@@ -205,7 +202,7 @@ class Spoke(object, metaclass=ABCMeta):
            storage      -- An instance of storage.Storage.  This is useful for
                            determining what storage devices are present and how
                            they are configured.
-           payload      -- An instance of a packaging.Payload subclass.  This
+           payload      -- An instance of a payload.Payload subclass.  This
                            is useful for displaying and selecting packages to
                            install, and in carrying out the actual installation.
            instclass    -- An instance of a BaseInstallClass subclass.  This
@@ -220,9 +217,15 @@ class Spoke(object, metaclass=ABCMeta):
 
         self.visitedSinceApplied = True
 
-        # lists of callbacks to be called when the spoke is entered/exited by the user
-        self._entry_callbacks = [self.entry_logger, self._mark_screen_visited]
-        self._exit_callbacks = [self.exit_logger]
+        # entry and exit signals
+        # - get the hub instance as a single argument
+        self.entered = Signal()
+        self.exited = Signal()
+
+        # connect default callbacks for the signals
+        self.entered.connect(self.entry_logger)
+        self.entered.connect(self._mark_screen_visited)
+        self.exited.connect(self.exit_logger)
 
     @abstractproperty
     def data(self):
@@ -334,43 +337,10 @@ class Spoke(object, metaclass=ABCMeta):
         """
         raise NotImplementedError
 
-    def entry(self):
-        """Called once the spoke is about to be displayed.
-
-        Once called all the callbacks specified in the entry_callbacks list
-        property will be called in the list order.
-        """
-        for callback in self.entry_callbacks:
-            callback(self)
-
-    @property
-    def entry_callbacks(self):
-        """List of callback to be called once the spoke is entered by the user.
-
-        Each callback is called with a single argument, the spoke instance.
-        """
-        return self._entry_callbacks
 
     def _mark_screen_visited(self, spoke_instance):
         """Report the spoke screen as visited to the Spoke Access Manager."""
         screen_access.sam.mark_screen_visited(spoke_instance.__class__.__name__)
-
-    def exit(self):
-        """Called once the spoke is exited by the used.
-
-        Once called all the callbacks specified in the exit_callbacks list
-        property will be called in the list order.
-        """
-        for callback in self.exit_callbacks:
-            callback(self)
-
-    @property
-    def exit_callbacks(self):
-        """List of callback to be called once the spoke is exited by the user.
-
-        Each callback is called with a single argument, the spoke instance.
-        """
-        return self._exit_callbacks
 
     def entry_logger(self, spoke_instance):
         """Log immediately before this spoke is about to be displayed on the
@@ -378,7 +348,7 @@ class Spoke(object, metaclass=ABCMeta):
            more specific information, but an overridden method should finish
            by calling this method so the entry will be logged.
         """
-        log.debug("Entered spoke: %s", spoke_instance.__class__.__name__)
+        log.debug("Entered spoke: %s", spoke_instance)
 
     def exit_logger(self, spoke_instance):
         """Log when a user leaves the spoke.  Subclasses may override this
@@ -386,7 +356,7 @@ class Spoke(object, metaclass=ABCMeta):
            overridden method should finish by calling this method so the
            exit will be logged.
         """
-        log.debug("Left spoke: %s", spoke_instance.__class__.__name__)
+        log.debug("Left spoke: %s", spoke_instance)
 
     def finished(self):
         """Called when exiting the Summary Hub
@@ -395,6 +365,57 @@ class Spoke(object, metaclass=ABCMeta):
         installation. This method is optional.
         """
         pass
+
+    # Initialization controller related code
+    #
+    # - initialization_controller
+    # -> The controller for this spokes and all others on the given hub.
+    # -> The controller has the init_done signal that can be used to trigger
+    #    actions that should happen once all spokes on the given Hub have
+    #    finished initialization.
+    # -> If there is no Hub (standalone spoke) the property is None
+    #
+    # - initialize_start()
+    # -> Should be called when Spoke initialization is started.
+    # -> Needs to be called explicitly, if we called it for every spoke by default
+    #    then any spoke that does not call initialize_done() would prevent the
+    #    controller form ever triggering the init_done signal.
+    #
+    # - initialize_done()
+    # -> Must be called by every spoke that calls initialize_start() or else the init_done
+    #    signal will never be emitted.
+
+    @property
+    def initialization_controller(self):
+        # standalone spokes don't have a category
+        if self.category:
+            return lifecycle.get_controller_by_category(category_name=self.category.__name__)
+        else:
+            return None
+
+    def initialize_start(self):
+        # get the correct controller for this spoke
+        spoke_controller = self.initialization_controller
+        # check if there actually is a controller for this spoke, there might not be one
+        # if this is a standalone spoke
+        if spoke_controller:
+            spoke_controller.module_init_start(self)
+
+    def initialize_done(self):
+        # get the correct controller for this spoke
+        spoke_controller = self.initialization_controller
+        # check if there actually is a controller for this spoke, there might not be one
+        # if this is a standalone spoke
+        if spoke_controller:
+            spoke_controller.module_init_done(self)
+
+    def __repr__(self):
+        """Return the class name as representation.
+
+        Returning the class name should be enough the uniquely identify a spoke.
+        """
+        return self.__class__.__name__
+
 
 # Inherit abstract methods from Spoke
 # pylint: disable=abstract-method
@@ -524,7 +545,7 @@ class Hub(object, metaclass=ABCMeta):
            storage      -- An instance of storage.Storage.  This is useful for
                            determining what storage devices are present and how
                            they are configured.
-           payload      -- An instance of a packaging.Payload subclass.  This
+           payload      -- An instance of a payload.Payload subclass.  This
                            is useful for displaying and selecting packages to
                            install, and in carrying out the actual installation.
            instclass    -- An instance of a BaseInstallClass subclass.  This
@@ -539,9 +560,14 @@ class Hub(object, metaclass=ABCMeta):
         self.paths = {}
         self._spokes = {}
 
-        # lists of callbacks to be called when thehub is entered/exited by the user
-        self._entry_callbacks = [self.entry_logger]
-        self._exit_callbacks = [self.exit_logger]
+        # entry and exit signals
+        # - get the hub instance as a single argument
+        self.entered = Signal()
+        self.exited = Signal()
+
+        # connect the default callbacks
+        self.entered.connect(self.entry_logger)
+        self.exited.connect(self.exit_logger)
 
     @abstractproperty
     def data(self):
@@ -556,40 +582,6 @@ class Hub(object, metaclass=ABCMeta):
            name format string, directory name)"""
         self.paths[path_id] = paths
 
-    def entry(self):
-        """Called once the hub is about to be displayed.
-
-        Once called all the callbacks specified in the entry_callbacks list
-        property will be called in the list order.
-        """
-        for callback in self.entry_callbacks:
-            callback(self)
-
-    @property
-    def entry_callbacks(self):
-        """List of callback to be called once the hub is entered by the user.
-
-        Each callback is called with a single argument, the hub instance.
-        """
-        return self._entry_callbacks
-
-    def exit(self):
-        """Called once the hub is exited by the used.
-
-        Once called all the callbacks specified in the exit_callbacks list
-        property will be called in the list order.
-        """
-        for callback in self.exit_callbacks:
-            callback(self)
-
-    @property
-    def exit_callbacks(self):
-        """List of callback to be called once the hub is exited by the user.
-
-        Each callback is called with a single argument, the hub instance.
-        """
-        return self._exit_callbacks
-
     def entry_logger(self, hub_instance):
         """Log immediately before this hub is about to be displayed on the
            screen.  Subclasses may override this method if they want to log
@@ -601,7 +593,7 @@ class Hub(object, metaclass=ABCMeta):
            and then coming back to the hub does not count as exiting and
            entering.
         """
-        log.debug("Entered hub: %s", hub_instance.__class__.__name__)
+        log.debug("Entered hub: %s", hub_instance)
 
     def _collectCategoriesAndSpokes(self):
         """This method is provided so that is can be overridden in a subclass
@@ -620,145 +612,14 @@ class Hub(object, metaclass=ABCMeta):
            user selects a spoke from the hub.  They are only exited when the
            continue or quit button is clicked on the hub.
         """
-        log.debug("Left hub: %s", hub_instance.__class__.__name__)
+        log.debug("Left hub: %s", hub_instance)
 
-def collect(module_pattern, path, pred):
-    """Traverse the directory (given by path), import all files as a module
-       module_pattern % filename and find all classes within that match
-       the given predicate.  This is then returned as a list of classes.
+    def __repr__(self):
+        """Return the class name as representation.
 
-       It is suggested you use collect_categories or collect_spokes instead of
-       this lower-level method.
-
-       :param module_pattern: the full name pattern (pyanaconda.ui.gui.spokes.%s)
-                              we want to assign to imported modules
-       :type module_pattern: string
-
-       :param path: the directory we are picking up modules from
-       :type path: string
-
-       :param pred: function which marks classes as good to import
-       :type pred: function with one argument returning True or False
-    """
-
-    retval = []
-    try:
-        contents = os.listdir(path)
-    # when the directory "path" does not exist
-    except OSError:
-        return []
-
-    for module_file in contents:
-        if (not module_file.endswith(".py")) and \
-           (not module_file.endswith(".so")):
-            continue
-
-        if module_file == "__init__.py":
-            continue
-
-        try:
-            mod_name = module_file[:module_file.rindex(".")]
-        except ValueError:
-            mod_name = module_file
-
-        mod_info = None
-        module = None
-        module_path = None
-
-        try:
-            imp.acquire_lock()
-            (fo, module_path, module_flags) = imp.find_module(mod_name, [path])
-            module = sys.modules.get(module_pattern % mod_name)
-
-            # do not load module if any module with the same name
-            # is already imported
-            if not module:
-                # try importing the module the standard way first
-                # uses sys.path and the module's full name!
-                try:
-                    __import__(module_pattern % mod_name)
-                    module = sys.modules[module_pattern % mod_name]
-
-                # if it fails (package-less addon?) try importing single file
-                # and filling up the package structure voids
-                except ImportError:
-                    # prepare dummy modules to prevent RuntimeWarnings
-                    module_parts = (module_pattern % mod_name).split(".")
-
-                    # remove the last name as it will be inserted by the import
-                    module_parts.pop()
-
-                    # make sure all "parent" modules are in sys.modules
-                    for l in range(len(module_parts)):
-                        module_part_name = ".".join(module_parts[:l+1])
-                        if module_part_name not in sys.modules:
-                            module_part = types.ModuleType(module_part_name)
-                            module_part.__path__ = [path]
-                            sys.modules[module_part_name] = module_part
-
-                    # load the collected module
-                    module = imp.load_module(module_pattern % mod_name,
-                                             fo, module_path, module_flags)
-
-
-            # get the filenames without the extensions so we can compare those
-            # with the .py[co]? equivalence in mind
-            # - we do not have to care about files without extension as the
-            #   condition at the beginning of the for loop filters out those
-            # - module_flags[0] contains the extension of the module imp found
-            candidate_name = module_path[:module_path.rindex(module_flags[0])]
-            loaded_name, loaded_ext = module.__file__.rsplit(".", 1)
-
-            # restore the extension dot eaten by split
-            loaded_ext = "." + loaded_ext
-
-            # do not collect classes when the module is already imported
-            # from different path than we are traversing
-            # this condition checks the module name without file extension
-            if candidate_name != loaded_name:
-                continue
-
-            # if the candidate file is .py[co]? and the loaded is not (.so)
-            # skip the file as well
-            if module_flags[0].startswith(".py") and not loaded_ext.startswith(".py"):
-                continue
-
-            # if the candidate file is not .py[co]? and the loaded is
-            # skip the file as well
-            if not module_flags[0].startswith(".py") and loaded_ext.startswith(".py"):
-                continue
-
-        except RemovedModuleError:
-            # collected some removed module
-            continue
-
-        except ImportError as imperr:
-            # pylint: disable=unsupported-membership-test
-            if module_path and "pyanaconda" in module_path:
-                # failure when importing our own module:
-                raise
-            log.error("Failed to import module %s from path %s in collect: %s", mod_name, module_path, imperr)
-            continue
-        finally:
-            imp.release_lock()
-
-            if mod_info and mod_info[0]: # pylint: disable=unsubscriptable-object
-                mod_info[0].close() # pylint: disable=unsubscriptable-object
-
-        p = lambda obj: inspect.isclass(obj) and pred(obj)
-
-        # if __all__ is defined in the module, use it
-        if not hasattr(module, "__all__"):
-            members = inspect.getmembers(module, p)
-        else:
-            members = [(name, getattr(module, name))
-                       for name in module.__all__
-                       if p(getattr(module, name))]
-
-        for (_name, val) in members:
-            retval.append(val)
-
-    return retval
+        Returning the class name should be enough the uniquely identify a hub.
+        """
+        return self.__class__.__name__
 
 def collect_spokes(mask_paths, category):
     """Return a list of all spoke subclasses that should appear for a given
@@ -810,6 +671,7 @@ def collectCategoriesAndSpokes(paths, klass, displaymode):
        :return: dictionary mapping category class to list of spoke classes
        :rtype: dictionary[category class] -> [ list of spoke classes ]
     """
+
     ret = {}
     # Collect all the categories this hub displays, then collect all the
     # spokes belonging to all those categories.
@@ -821,5 +683,17 @@ def collectCategoriesAndSpokes(paths, klass, displaymode):
                             key=lambda c: c.sortOrder)
     for c in categories:
         ret[c] = collect_spokes(paths["spokes"], c.__name__)
+
+    # As we now have a list of all categories this hub holds we can now register it's controller.
+    # We need the list of categories so that spokes can find out which controller they should use
+    # based on their category.
+    category_names = set()
+    for c in categories:
+        category_names.add(c.__name__)
+
+    # We have gathered all known category names and more are not expected to be added,
+    # so we can now add an initialization controller, which needs the final list
+    # of categories for the given hub.
+    lifecycle.add_controller(klass.__name__, category_names)
 
     return ret

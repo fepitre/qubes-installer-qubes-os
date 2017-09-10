@@ -59,20 +59,18 @@ from pyanaconda import constants
 from pyanaconda.threads import threadMgr, AnacondaThread
 from pyanaconda.ui.communication import hubQ
 from pyanaconda.i18n import _
-from pyanaconda.packaging import payloadMgr
-from pyanaconda import isys
+from pyanaconda.payload import payloadMgr
 
 import logging
 import copy
 
-class StorageChecker(object, metaclass=ABCMeta):
+class StorageCheckHandler(object, metaclass=ABCMeta):
     log = logging.getLogger("anaconda")
     errors = []
     warnings = []
 
-    def __init__(self, min_ram=isys.MIN_RAM, mainSpokeClass="StorageSpoke"):
+    def __init__(self, mainSpokeClass="StorageSpoke"):
         self._mainSpokeClass = mainSpokeClass
-        self._min_ram = min_ram
 
     @abstractproperty
     def storage(self):
@@ -83,21 +81,21 @@ class StorageChecker(object, metaclass=ABCMeta):
                                      target=self.checkStorage))
 
     def checkStorage(self):
-        from pyanaconda.storage_utils import sanity_check, SanityError, SanityWarning
+        from pyanaconda.storage_utils import storage_checker
 
         threadMgr.wait(constants.THREAD_EXECUTE_STORAGE)
 
         hubQ.send_not_ready(self._mainSpokeClass)
         hubQ.send_message(self._mainSpokeClass, _("Checking storage configuration..."))
-        exns = sanity_check(self.storage, min_ram=self._min_ram)
-        errors = [str(exn) for exn in exns if isinstance(exn, SanityError)]
-        warnings = [str(exn) for exn in exns if isinstance(exn, SanityWarning)]
-        (StorageChecker.errors, StorageChecker.warnings) = (errors, warnings)
+
+        report = storage_checker.check(self.storage)
+        # Storage spoke and custom spoke communicate errors via StorageCheckHandler,
+        # so we need to set errors and warnings class attributes here.
+        StorageCheckHandler.errors = report.errors
+        StorageCheckHandler.warnings = report.warnings
+
         hubQ.send_ready(self._mainSpokeClass, True)
-        for e in StorageChecker.errors:
-            self.log.error(e)
-        for w in StorageChecker.warnings:
-            self.log.warning(w)
+        report.log(self.log)
 
 class SourceSwitchHandler(object, metaclass=ABCMeta):
     """ A class that can be used as a mixin handling
@@ -142,8 +140,8 @@ class SourceSwitchHandler(object, metaclass=ABCMeta):
                 dev.protected = False
             # the hdd iso cleanup function might be run multiple times,
             # so make sure the partition still is in the list of protected devices
-            if part in self.storage.config.protectedDevSpecs:
-                self.storage.config.protectedDevSpecs.remove(part)
+            if part in self.storage.config.protected_dev_specs:
+                self.storage.config.protected_dev_specs.remove(part)
 
     def set_source_hdd_iso(self, device, iso_path):
         """ Switch to the HDD ISO install source
@@ -163,7 +161,7 @@ class SourceSwitchHandler(object, metaclass=ABCMeta):
         # protect current device
         if device:
             device.protected = True
-            self.storage.config.protectedDevSpecs.append(device.name)
+            self.storage.config.protected_dev_specs.append(device.name)
 
         self.data.method.method = "harddrive"
         self.data.method.partition = partition

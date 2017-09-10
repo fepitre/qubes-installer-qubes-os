@@ -21,6 +21,8 @@
 import string # pylint: disable=deprecated-module
 from pyanaconda.i18n import N_
 
+from enum import Enum
+
 # Use -1 to indicate that the selinux configuration is unset
 SELINUX_DEFAULT = -1
 
@@ -107,9 +109,11 @@ THREAD_GEOLOCATION_REFRESH = "AnaGeolocationRefreshThread"
 THREAD_DATE_TIME = "AnaDateTimeThread"
 THREAD_TIME_INIT = "AnaTimeInitThread"
 THREAD_DASDFMT = "AnaDasdfmtThread"
+THREAD_DASD_DISCOVER = "AnaDasdDiscoverThread"
 THREAD_KEYBOARD_INIT = "AnaKeyboardThread"
 THREAD_ADD_LAYOUTS_INIT = "AnaAddLayoutsInitThread"
 THREAD_NTP_SERVER_CHECK = "AnaNTPserver"
+THREAD_ZFCP_DISCOVER = "AnaZfcpDiscoverThread"
 
 # Geolocation constants
 
@@ -134,7 +138,7 @@ FIRSTBOOT_ENVIRON = "firstboot"
 UNSUPPORTED_HW = 1 << 28
 
 # Password validation
-PASSWORD_MIN_LEN = 8
+PASSWORD_MIN_LEN = 6
 PASSWORD_EMPTY_ERROR = N_("The password is empty.")
 PASSWORD_CONFIRM_ERROR_GUI = N_("The passwords do not match.")
 PASSWORD_CONFIRM_ERROR_TUI = N_("The passwords you entered were different.  Please try again.")
@@ -145,7 +149,13 @@ PASSWORD_WEAK_CONFIRM_WITH_ERROR = N_("You have provided a weak password: %s. Pr
 PASSWORD_ASCII = N_("The password you have provided contains non-ASCII characters. You may not be able to switch between keyboard layouts to login. Press Done to continue.")
 PASSWORD_DONE_TWICE = N_("You will have to press Done twice to confirm it.")
 
-PASSWORD_STRENGTH_DESC = [N_("Empty"), N_("Weak"), N_("Fair"), N_("Good"), N_("Strong")]
+class PasswordStatus(Enum):
+    EMPTY = N_("Empty")
+    TOO_SHORT = N_("Too short")
+    WEAK = N_("Weak")
+    FAIR = N_("Fair")
+    GOOD = N_("Good")
+    STRONG = N_("Strong")
 
 PASSWORD_HIDE = N_("Hide password.")
 PASSWORD_SHOW = N_("Show password.")
@@ -167,9 +177,12 @@ SCREENSHOTS_DIRECTORY = "/tmp/anaconda-screenshots"
 SCREENSHOTS_TARGET_DIRECTORY = "/root/anaconda-screenshots"
 
 # cmdline arguments that append instead of overwrite
-CMDLINE_APPEND = ["modprobe.blacklist", "ifname"]
+CMDLINE_APPEND = ["modprobe.blacklist", "ifname", "ip"]
 
 DEFAULT_AUTOPART_TYPE = AUTOPART_TYPE_LVM
+
+# Filesystems which are not supported by Anaconda
+UNSUPPORTED_FILESYSTEMS = ("btrfs", "ntfs", "tmpfs")
 
 # Default to these units when reading user input when no units given
 SIZE_UNITS_DEFAULT = "MiB"
@@ -200,3 +213,16 @@ WINDOW_TITLE_TEXT = N_("Anaconda Installer")
 NTP_SERVER_OK = 0
 NTP_SERVER_NOK = 1
 NTP_SERVER_QUERY = 2
+
+# Storage checker constraints
+STORAGE_MIN_RAM = "min_ram"
+STORAGE_MIN_ROOT = "min_root"
+STORAGE_MIN_PARTITION_SIZES = "min_partition_sizes"
+STORAGE_MUST_BE_ON_LINUXFS = "must_be_on_linuxfs"
+STORAGE_MUST_BE_ON_ROOT = "must_be_on_root"
+STORAGE_SWAP_IS_RECOMMENDED = "swap_is_recommended"
+
+# Display modes
+class DisplayModes(Enum):
+    GUI = "GUI"
+    TUI = "TUI"

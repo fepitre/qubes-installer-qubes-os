@@ -21,7 +21,7 @@ import logging
 log = logging.getLogger("anaconda")
 from pyanaconda.ui.categories.localization import LocalizationCategory
 from pyanaconda.ui.tui.spokes import NormalTUISpoke, EditTUIDialog
-from pyanaconda.ui.tui.simpleline import TextWidget, ColumnWidget
+from pyanaconda.ui.tui.simpleline import TextWidget, ColumnWidget, Prompt
 from pyanaconda.ui.common import FirstbootSpokeMixIn
 from pyanaconda import timezone
 from pyanaconda import ntp
@@ -49,6 +49,7 @@ __all__ = ["TimeSpoke"]
 
 class TimeSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
     title = N_("Time settings")
+    helpFile = "DateTimeSpoke.txt"
     category = LocalizationCategory
 
     def __init__(self, app, data, storage, payload, instclass):
@@ -63,6 +64,7 @@ class TimeSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
         return False
 
     def initialize(self):
+        self.initialize_start()
         # We get the initial NTP servers (if any):
         # - from kickstart when running inside of Anaconda
         #   during the installation
@@ -85,6 +87,10 @@ class TimeSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
 
             # check if the newly added NTP servers work fine
             self._check_ntp_servers_async(self._ntp_servers.keys())
+
+        # we assume that the NTP spoke is initialized enough even if some NTP
+        # server check threads might still be running
+        self.initialize_done()
 
     def _check_ntp_servers_async(self, servers):
         """Asynchronously check if given NTP servers appear to be working.
@@ -233,7 +239,7 @@ class TimeSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
         choices = [_prep(i, w) for i, w in enumerate(text)]
 
         displayed = ColumnWidget([(78, choices)], 1)
-        self._window.append(displayed)
+        self._window += [displayed, ""]
 
         return True
 
@@ -242,7 +248,7 @@ class TimeSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
         try:
             num = int(key)
         except ValueError:
-            return key
+            return super(TimeSpoke, self).input(args, key)
 
         if num == 1:
             # set timezone
@@ -281,7 +287,7 @@ class TimeZoneSpoke(NormalTUISpoke):
         # so whatever
         self._regions = list(timezone.get_all_regions_and_timezones().keys())
         self._timezones = dict((k, sorted(v)) for k, v in timezone.get_all_regions_and_timezones().items())
-        self._lower_regions = [r.lower() for r in self._timezones]
+        self._lower_regions = [r.lower() for r in self._regions]
 
         self._zones = ["%s/%s" % (region, z) for region in self._timezones for z in self._timezones[region]]
         # for lowercase lookup
@@ -314,7 +320,7 @@ class TimeZoneSpoke(NormalTUISpoke):
         right = [_prep(i, w) for i, w in enumerate(displayed) if i > 2 * middle]
 
         c = ColumnWidget([(24, left), (24, center), (24, right)], 3)
-        self._window.append(c)
+        self._window += [c, ""]
 
         return True
 
@@ -367,12 +373,12 @@ class TimeZoneSpoke(NormalTUISpoke):
             return INPUT_PROCESSED
 
     def prompt(self, args=None):
-        return _("Please select the timezone.\nUse numbers or type names directly ['%(back)s' to region list, '%(quit)s' to quit]: ") % {
-            # TRANSLATORS: 'b' to go back
-            'back': C_('TUI|Spoke Navigation|Time Settings', 'b'),
-            # TRANSLATORS:'q' to quit
-            'quit': C_('TUI|Spoke Navigation|Time Settings', 'q')
-        }
+        """ Customize default prompt. """
+        prompt = NormalTUISpoke.prompt(self, args)
+        prompt.set_message(_("Please select the timezone. Use numbers or type names directly"))
+        # TRANSLATORS: 'b' to go back
+        prompt.add_option(C_('TUI|Spoke Navigation|Time Settings', 'b'), _("back to region list"))
+        return prompt
 
     def apply(self):
         self.data.timezone.timezone = self._selection
@@ -421,7 +427,7 @@ class NTPServersSpoke(NormalTUISpoke):
         choices = [_prep(i, w) for i, w in enumerate(text)]
 
         displayed = ColumnWidget([(78, choices)], 1)
-        self._window.append(displayed)
+        self._window += [displayed, ""]
 
         return True
 
@@ -429,7 +435,7 @@ class NTPServersSpoke(NormalTUISpoke):
         try:
             num = int(key)
         except ValueError:
-            return key
+            return super(NTPServersSpoke, self).input(args, key)
 
         if num == 1:
             # add an NTP server
@@ -471,7 +477,7 @@ class AddNTPServerSpoke(EditTUIDialog):
     def prompt(self, args=None):
         # the title is enough, no custom prompt is needed
         if self.value is None:  # first run or nothing entered
-            return _("Enter an NTP server address and press Enter\n")
+            return Prompt(_("Enter an NTP server address and press %s") % Prompt.ENTER)
 
         # an NTP server address has been entered
         self._new_ntp_server = self.value
@@ -479,7 +485,7 @@ class AddNTPServerSpoke(EditTUIDialog):
         self.apply()
         self.close()
 
-    def input(self, entry, key):
+    def input(self, args, key):
         # we accept any string as NTP server address, as we do an automatic
         # working/not-working check on the address later
         self.value = key
@@ -521,7 +527,7 @@ class RemoveNTPServerSpoke(NormalTUISpoke):
         try:
             num = int(key)
         except ValueError:
-            return key
+            return super(RemoveNTPServerSpoke, self).input(args, key)
 
         # we expect a number corresponding to one of the NTP servers
         # in the listing - the server corresponding to the number will be

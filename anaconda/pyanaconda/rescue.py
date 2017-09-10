@@ -21,12 +21,13 @@ from blivet.devices import LUKSDevice
 from blivet.osinstall import mount_existing_system, find_existing_installations
 
 from pyanaconda import iutil
-from pyanaconda.constants import ANACONDA_CLEANUP
+from pyanaconda.constants import ANACONDA_CLEANUP, THREAD_STORAGE
 from pyanaconda.constants_text import INPUT_PROCESSED
+from pyanaconda.threads import threadMgr
 from pyanaconda.flags import flags
 from pyanaconda.i18n import _, N_, C_
 from pyanaconda.kickstart import runPostScripts
-from pyanaconda.ui.tui.simpleline import TextWidget, ColumnWidget, CheckboxWidget
+from pyanaconda.ui.tui.simpleline import TextWidget, ColumnWidget, CheckboxWidget, App, Prompt
 from pyanaconda.ui.tui.spokes import NormalTUISpoke
 from pyanaconda.ui.tui.tuiobject import YesNoDialog, PasswordDialog
 from pyanaconda.storage_utils import try_populate_devicetree
@@ -131,6 +132,7 @@ class RescueMode(NormalTUISpoke):
 
     def initialize(self):
         NormalTUISpoke.initialize(self)
+        threadMgr.wait(THREAD_STORAGE)
 
         for f in ["services", "protocols", "group", "man.config",
                   "nsswitch.conf", "selinux", "mke2fs.conf"]:
@@ -141,7 +143,7 @@ class RescueMode(NormalTUISpoke):
 
     def prompt(self, args=None):
         """ Override the default TUI prompt."""
-        return _("Please make a selection from the above:  ")
+        return Prompt()
 
     def refresh(self, args=None):
         NormalTUISpoke.refresh(self, args)
@@ -183,10 +185,6 @@ class RescueMode(NormalTUISpoke):
             # decrypt any luks devices
             self._unlock_devices()
 
-            # this sleep may look pointless, but it seems necessary, in
-            # order for some task to complete; otherwise no existing
-            # installations are discovered. IOW, this is a hack.
-            time.sleep(2)
             # attempt to find previous installations
             roots = find_existing_installations(self.storage.devicetree)
             if len(roots) == 1:
@@ -248,6 +246,11 @@ class RescueMode(NormalTUISpoke):
                                               parents=[device],
                                               exists=True)
                         self.storage.devicetree._add_device(luks_dev)
+
+                        # Wait for the device.
+                        # Otherwise, we could get a message about no Linux partitions.
+                        time.sleep(2)
+
                         try_populate_devicetree(self.storage.devicetree)
                         unlocked = True
                         # try to use the same passhprase for other devices
@@ -289,11 +292,12 @@ class RootSpoke(NormalTUISpoke):
 
     def prompt(self, args=None):
         """ Override the default TUI prompt."""
-        return _("Please make your selection from the above list.\nPress '%(continue)s' "
-                 "to continue after you have made your selection.  ") % {
+        return Prompt(
+                 _("Please make your selection from the above list.\n"
+                   "Press '%(continue)s' to continue after you have made your selection") % {
                      # TRANSLATORS:'c' to continue
                      'continue': C_('TUI|Root Selection', 'c'),
-                 }
+                   })
 
     def input(self, args, key):
         """Move along home."""
@@ -342,9 +346,10 @@ class RescueMountSpoke(NormalTUISpoke):
                 if flags.automatedInstall:
                     log.info("System has been mounted under: %s", iutil.getSysroot())
                 else:
-                    text = TextWidget(_("Your system has been mounted under %(mountpoint)s.\n\nIf "
-                                        "you would like to make your system the root "
-                                        "environment, run the command:\n\n\tchroot %(mountpoint)s\n")
+                    text = TextWidget(_("Your system has been mounted under %(mountpoint)s.\n\n"
+                                        "If you would like to make the root of your system the "
+                                        "root of the active system, run the command:\n\n"
+                                        "\tchroot %(mountpoint)s\n")
                                         % {"mountpoint": iutil.getSysroot()} )
                     self._window.append(text)
                 rootmounted = True
@@ -432,7 +437,7 @@ class RescueMountSpoke(NormalTUISpoke):
 
     def prompt(self, args=None):
         """ Override the default TUI prompt."""
-        return _("Please press [Enter] to get a shell. ")
+        return Prompt(_("Please press %s to get a shell") % Prompt.ENTER)
 
     def input(self, args, key):
         """Move along home."""
@@ -447,3 +452,13 @@ class RescueMountSpoke(NormalTUISpoke):
     def indirect(self):
         return True
 
+def start_rescue_mode_ui(anaconda):
+    """Start the rescue mode TUI.
+
+    :param anaconda: instance of the Anaconda class
+    """
+    app = App("Rescue Mode")
+    spoke = RescueMode(app, anaconda.ksdata, anaconda.storage)
+    spoke.initialize()
+    app.schedule_screen(spoke)
+    app.run()

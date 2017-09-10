@@ -18,6 +18,7 @@
 #
 import sys
 from pyanaconda import iutil, constants
+from pyanaconda.constants_text import INPUT_PROCESSED
 from pyanaconda.i18n import N_, _, C_
 from pyanaconda.ui import common
 from pyanaconda.ui.tui import simpleline as tui
@@ -42,11 +43,11 @@ class ErrorDialog(tui.UIScreen):
     def refresh(self, args=None):
         tui.UIScreen.refresh(self, args)
         text = tui.TextWidget(self._message)
-        self._window.append(tui.CenterWidget(text))
+        self._window += [tui.CenterWidget(text), ""]
         return True
 
     def prompt(self, args=None):
-        return _("Press Enter to exit.")
+        return tui.Prompt(_("Press %s to exit") % tui.Prompt.ENTER)
 
     def input(self, args, key):
         """This dialog is closed by any input.
@@ -75,8 +76,7 @@ class PasswordDialog(tui.UIScreen):
     def refresh(self, args=None):
         tui.UIScreen.refresh(self, args)
         text = tui.TextWidget(self._message)
-        self._window.append(tui.CenterWidget(text))
-        self._window.append(u"")
+        self._window += [tui.CenterWidget(text), ""]
         return True
 
     def prompt(self, args=None):
@@ -124,17 +124,16 @@ class YesNoDialog(tui.UIScreen):
     def refresh(self, args=None):
         tui.UIScreen.refresh(self, args)
         text = tui.TextWidget(self._message)
-        self._window.append(tui.CenterWidget(text))
-        self._window.append(u"")
+        self._window += [tui.CenterWidget(text), ""]
         return True
 
     def prompt(self, args=None):
-        return _("Please respond '%(yes)s' or '%(no)s': ") % {
+        return tui.Prompt(_("Please respond '%(yes)s' or '%(no)s'") % {
             # TRANSLATORS: 'yes' as positive reply
             "yes": C_('TUI|Spoke Navigation', 'yes'),
             # TRANSLATORS: 'no' as negative reply
             "no": C_('TUI|Spoke Navigation', 'no')
-        }
+        })
 
     def input(self, args, key):
         # TRANSLATORS: 'yes' as positive reply
@@ -157,11 +156,50 @@ class YesNoDialog(tui.UIScreen):
         """The response can be True (yes), False (no) or None (no response)."""
         return self._response
 
+
+class HelpScreen(tui.UIScreen):
+    """Screen to display a help message."""
+
+    title = N_("Help")
+
+    def __init__(self, app, help_path):
+        """
+        :param app: the running application reference
+        :type app: instance of App class
+
+        :param help_path: help file name
+        :type help_path: str
+        """
+        tui.UIScreen.__init__(self, app)
+        self.help_path = help_path
+
+    def refresh(self, args=None):
+        """ Show the help. """
+        tui.UIScreen.refresh(self, args)
+        help_message = _("The help is not available.")
+
+        if self.help_path:
+            with open(self.help_path, 'r') as f:
+                help_message = f.read()
+
+        self._window += [tui.TextWidget(help_message), ""]
+        return True
+
+    def input(self, args, key):
+        """ Handle user input. """
+        self.close()
+        return INPUT_PROCESSED
+
+    def prompt(self, args=None):
+        return tui.Prompt(_("Press %s to return") % tui.Prompt.ENTER)
+
+
 class TUIObject(tui.UIScreen, common.UIObject):
     """Base class for Anaconda specific TUI screens. Implements the
     common pyanaconda.ui.common.UIObject interface"""
 
     title = u"Default title"
+    helpFile = None
 
     def __init__(self, app, data):
         tui.UIScreen.__init__(self, app)
@@ -170,6 +208,10 @@ class TUIObject(tui.UIScreen, common.UIObject):
     @property
     def showable(self):
         return True
+
+    @property
+    def has_help(self):
+        return self.helpFile is not None
 
     def refresh(self, args=None):
         """Put everything to display into self.window list."""

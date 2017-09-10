@@ -8,12 +8,13 @@ class AnacondaLintConfig(PocketLintConfig):
     def __init__(self):
         PocketLintConfig.__init__(self)
 
-        self.falsePositives = [ FalsePositive(r"^E0611.*: No name '_isys' in module 'pyanaconda'$"),
-                                FalsePositive(r"^E0712.*: Catching an exception which doesn't inherit from BaseException: GError$"),
-                                FalsePositive(r"^E0712.*: Catching an exception which doesn't inherit from BaseException: S390Error$"),
+        self.falsePositives = [ FalsePositive(r"^E0712.*: Catching an exception which doesn't inherit from (Base|)Exception: GError$"),
+                                FalsePositive(r"^E0712.*: Catching an exception which doesn't inherit from (Base|)Exception: S390Error$"),
 
-                                # XXX: These are temporary until dogtail and koji have python3 versions.
-                                FalsePositive(r"^E0401.*: Unable to import 'dogtail.*'$"),
+                                # TODO: Should be fixed with https://github.com/PyCQA/astroid/pull/433
+                                FalsePositive(r"^E1129.*: Context manager 'lock' doesn't implement __enter__ and __exit__.$"),
+
+                                # XXX: This is temporary until koji has python3 versions.
                                 FalsePositive(r"^E0401.*: Unable to import 'koji'$"),
                                 FalsePositive(r"^E1101.*: Instance of 'GError' has no 'message' member"),
                                 FalsePositive(r"^E1101.*: FedoraGeoIPProvider._refresh: Instance of 'LookupDict' has no 'ok' member"),

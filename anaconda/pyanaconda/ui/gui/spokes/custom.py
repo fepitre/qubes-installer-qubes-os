@@ -40,11 +40,10 @@ from pyanaconda.i18n import _, N_, CP_, C_
 from pyanaconda.product import productName, productVersion, translated_new_install_name
 from pyanaconda.threads import AnacondaThread, threadMgr
 from pyanaconda.constants import THREAD_EXECUTE_STORAGE, THREAD_STORAGE, THREAD_CUSTOM_STORAGE_INIT
-from pyanaconda.constants import SIZE_UNITS_DEFAULT
+from pyanaconda.constants import SIZE_UNITS_DEFAULT, UNSUPPORTED_FILESYSTEMS
 from pyanaconda.iutil import lowerASCII
 from pyanaconda.bootloader import BootLoaderError
 from pyanaconda.kickstart import refreshAutoSwapSize
-from pyanaconda import isys
 from pyanaconda import network
 
 from blivet import devicefactory
@@ -69,18 +68,18 @@ from blivet.devicelibs import raid, crypto
 from blivet.devices import LUKSDevice, MDRaidArrayDevice, LVMVolumeGroupDevice
 from blivet.platform import platform
 
-from pyanaconda.storage_utils import ui_storage_logger, device_type_from_autopart
+from pyanaconda.storage_utils import ui_storage_logger, device_type_from_autopart, storage_checker, \
+    verify_luks_devices_have_key
 from pyanaconda.storage_utils import DEVICE_TEXT_PARTITION, DEVICE_TEXT_MAP, DEVICE_TEXT_MD
 from pyanaconda.storage_utils import PARTITION_ONLY_FORMAT_TYPES, MOUNTPOINT_DESCRIPTIONS
 from pyanaconda.storage_utils import NAMED_DEVICE_TYPES, CONTAINER_DEVICE_TYPES
-from pyanaconda.storage_utils import SanityError, SanityWarning, LUKSDeviceWithoutKeyError
 from pyanaconda.storage_utils import try_populate_devicetree
 from pyanaconda.storage_utils import filter_unsupported_disklabel_devices
 from pyanaconda import storage_utils
 
 from pyanaconda.ui.communication import hubQ
 from pyanaconda.ui.gui.spokes import NormalSpoke
-from pyanaconda.ui.helpers import StorageChecker
+from pyanaconda.ui.helpers import StorageCheckHandler
 from pyanaconda.ui.gui.spokes.lib.cart import SelectedDisksDialog
 from pyanaconda.ui.gui.spokes.lib.passphrase import PassphraseDialog
 from pyanaconda.ui.gui.spokes.lib.accordion import update_selector_from_device, Accordion, Page, CreateNewPage, UnknownPage
@@ -137,7 +136,7 @@ def ui_storage_logged(func):
 
     return decorated
 
-class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
+class CustomPartitioningSpoke(NormalSpoke, StorageCheckHandler):
     """
        .. inheritance-diagram:: CustomPartitioningSpoke
           :parts: 3
@@ -160,7 +159,7 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
     MIN_SIZE_ENTRY = Size("1 MiB")
 
     def __init__(self, data, storage, payload, instclass):
-        StorageChecker.__init__(self, min_ram=isys.MIN_GUI_RAM)
+        StorageCheckHandler.__init__(self)
         NormalSpoke.__init__(self, data, storage, payload, instclass)
 
         self._back_already_clicked = False
@@ -226,7 +225,7 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
 
         # Connect partitionsNotebook focus events to scrolling in the parent viewport
         partitionsNotebookViewport = self.builder.get_object("partitionsNotebookViewport")
-        self._partitionsNotebook.set_focus_vadjustment(partitionsNotebookViewport.get_vadjustment())
+        self._partitionsNotebook.set_focus_vadjustment(Gtk.Scrollable.get_vadjustment(partitionsNotebookViewport))
 
         self._pageLabel = self.builder.get_object("pageLabel")
 
@@ -287,6 +286,7 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
 
     def initialize(self):
         NormalSpoke.initialize(self)
+        self.initialize_start()
         self._grabObjects()
 
         setViewportBackground(self.builder.get_object("availableSpaceViewport"), "#db3279")
@@ -298,8 +298,8 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
         self._partitionsViewport.add(self._accordion)
 
         # Connect viewport scrolling with accordion focus events
-        self._accordion.set_focus_hadjustment(self._partitionsViewport.get_hadjustment())
-        self._accordion.set_focus_vadjustment(self._partitionsViewport.get_vadjustment())
+        self._accordion.set_focus_hadjustment(Gtk.Scrollable.get_hadjustment(self._partitionsViewport))
+        self._accordion.set_focus_vadjustment(Gtk.Scrollable.get_vadjustment(self._partitionsViewport))
 
         threadMgr.add(AnacondaThread(name=THREAD_CUSTOM_STORAGE_INIT, target=self._initialize))
 
@@ -313,8 +313,7 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
             obj = cls()
 
             # btrfs is always handled by on_device_type_changed
-            supported_fs = (obj.type != "btrfs" and
-                            obj.type != "tmpfs" and
+            supported_fs = (obj.type not in UNSUPPORTED_FILESYSTEMS and
                             obj.supported and obj.formattable and
                             (isinstance(obj, FS) or
                              obj.type in ["biosboot", "prepboot", "swap"]))
@@ -322,6 +321,9 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
                 _fs_types.append(obj.name)
 
         self._fs_types = set(_fs_types)
+
+        # report that the custom spoke has been initialized
+        self.initialize_done()
 
     @property
     def _clearpartDevices(self):
@@ -524,7 +526,7 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
 
         ui_roots = []
         for root in self._storage_playground.roots:
-            root_devices = chain(root.swaps, root.mounts.values())
+            root_devices = list(chain(root.swaps, root.mounts.values()))
             # Don't make a page if none of the root's devices are left.
             # Also, only include devices in an old page if the format is intact.
             if not any(d for d in root_devices if d in all_devices and d.disks and
@@ -1624,8 +1626,8 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
 
     def _do_check(self):
         self.clear_errors()
-        StorageChecker.errors = []
-        StorageChecker.warnings = []
+        StorageCheckHandler.errors = []
+        StorageCheckHandler.warnings = []
 
         # We can't overwrite the main Storage instance because all the other
         # spokes have references to it that would get invalidated, but we can
@@ -1641,10 +1643,10 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
             self.storage.set_up_bootloader()
         except BootLoaderError as e:
             log.error("storage configuration failed: %s", e)
-            StorageChecker.errors = str(e).split("\n")
+            StorageCheckHandler.errors = str(e).split("\n")
             self.data.bootloader.bootDrive = ""
 
-        StorageChecker.checkStorage(self)
+        StorageCheckHandler.checkStorage(self)
 
         if self.errors:
             self.set_warning(_("Error checking storage configuration.  <a href=\"\">Click for details</a> or press Done again to continue."))
@@ -2441,7 +2443,7 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
     def _do_autopart(self):
         """Helper function for on_create_clicked.
            Assumes a non-final context in which at least some errors
-           discovered by sanity_check are not considered fatal because they
+           discovered by storage checker are not considered fatal because they
            will be dealt with later.
 
            Note: There are never any non-existent devices around when this runs.
@@ -2483,16 +2485,12 @@ class CustomPartitioningSpoke(NormalSpoke, StorageChecker):
             self._storage_playground.do_autopart = False
             log.debug("finished automatic partitioning")
 
-        exns = storage_utils.sanity_check(self._storage_playground, min_ram=isys.MIN_GUI_RAM)
-        errors = [exn for exn in exns if isinstance(exn, SanityError) and not isinstance(exn, LUKSDeviceWithoutKeyError)]
-        warnings = [exn for exn in exns if isinstance(exn, SanityWarning)]
-        for error in errors:
-            log.error("%s", error)
-        for warning in warnings:
-            log.warning("%s", warning)
+        report = storage_checker.check(self._storage_playground,
+                                       skip=(verify_luks_devices_have_key,))
+        report.log(log)
 
-        if errors:
-            messages = "\n".join(str(error) for error in errors)
+        if report.errors:
+            messages = "\n".join(report.errors)
             log.error("do_autopart failed: %s", messages)
             self._reset_storage()
             self._error = messages
