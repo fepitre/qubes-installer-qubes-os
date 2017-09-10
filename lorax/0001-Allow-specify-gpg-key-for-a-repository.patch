@@ -13,6 +13,7 @@ Quite hacky way, but current command line syntax doesn't support
 additional per-repository settings.
 
 Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+Updated-by: Frédéric Pierret (Epitre) <frederic.epitre@orange.fr>
 ---
  src/pylorax/cmdline.py |  4 ++--
  src/sbin/lorax         | 10 ++++++++++
@@ -47,7 +48,7 @@ index df4994d..12061b4 100755
 @@ -212,6 +212,11 @@ def get_dnf_base_object(installroot, sources, mirrorlists=None, repos=None,
              continue
          repo_name = "lorax-repo-%d" % i
-         repo = dnf.repo.Repo(repo_name, cachedir)
+         repo = dnf.repo.Repo(repo_name, conf)
 +        if '(' in r and ')' in r:
 +            assert r[-1] == ')'
 +            r, gpgkey = r[:-1].split('(')
@@ -59,7 +60,7 @@ index df4994d..12061b4 100755
 @@ -232,6 +237,11 @@ def get_dnf_base_object(installroot, sources, mirrorlists=None, repos=None,
              continue
          repo_name = "lorax-mirrorlist-%d" % i
-         repo = dnf.repo.Repo(repo_name, cachedir)
+         repo = dnf.repo.Repo(repo_name, conf)
 +        if '(' in r and ')' in r:
 +            assert r[-1] == ')'
 +            r, gpgkey = r[:-1].split('(')
