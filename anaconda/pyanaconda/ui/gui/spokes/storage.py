@@ -37,12 +37,13 @@
 """
 
 import gi
+gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("GLib", "2.0")
 gi.require_version("AnacondaWidgets", "3.3")
-gi.require_version("BlockDev", "1.0")
+gi.require_version("BlockDev", "2.0")
 
-from gi.repository import Gdk, GLib, AnacondaWidgets
+from gi.repository import Gdk, GLib, AnacondaWidgets, Gtk
 from gi.repository import BlockDev as blockdev
 
 from pyanaconda.ui.communication import hubQ
@@ -57,7 +58,7 @@ from pyanaconda.ui.gui.spokes.lib.dasdfmt import DasdFormatDialog
 from pyanaconda.ui.gui.spokes.lib.refresh import RefreshDialog
 from pyanaconda.ui.categories.system import SystemCategory
 from pyanaconda.ui.gui.utils import escape_markup, gtk_action_nowait, ignoreEscape
-from pyanaconda.ui.helpers import StorageChecker
+from pyanaconda.ui.helpers import StorageCheckHandler
 
 from pyanaconda.kickstart import doKickstartStorage, refreshAutoSwapSize, resetCustomStorageData
 from blivet import arch
@@ -71,14 +72,16 @@ from pyanaconda.threads import threadMgr, AnacondaThread
 from pyanaconda.product import productName
 from pyanaconda.flags import flags
 from pyanaconda.i18n import _, C_, CN_, P_
-from pyanaconda import constants, iutil, isys
+from pyanaconda import constants, iutil
 from pyanaconda.bootloader import BootLoaderError
 from pyanaconda.storage_utils import on_disk_storage
+from pyanaconda.screen_access import sam
 
-from pykickstart.constants import CLEARPART_TYPE_NONE, AUTOPART_TYPE_LVM, AUTOPART_TYPE_LVM_THINP
+from pykickstart.constants import CLEARPART_TYPE_NONE, AUTOPART_TYPE_LVM
 from pykickstart.errors import KickstartParseError
 
 import sys
+from enum import Enum
 
 import logging
 log = logging.getLogger("anaconda")
@@ -94,6 +97,11 @@ RESPONSE_QUIT = 4
 DASD_FORMAT_NO_CHANGE = -1
 DASD_FORMAT_REFRESH = 1
 DASD_FORMAT_RETURN_TO_HUB = 2
+
+class PartitioningMethod(Enum):
+    AUTO = "auto"
+    CUSTOM = "custom"
+    BLIVET_GUI = "blivet-gui"
 
 class InstallOptionsDialogBase(GUIObject):
     uiFile = "spokes/storage.glade"
@@ -238,7 +246,7 @@ class NoSpaceDialog(InstallOptionsDialogBase):
 
         self._add_modify_watcher(label)
 
-class StorageSpoke(NormalSpoke, StorageChecker):
+class StorageSpoke(NormalSpoke, StorageCheckHandler):
     """
        .. inheritance-diagram:: StorageSpoke
           :parts: 3
@@ -255,7 +263,7 @@ class StorageSpoke(NormalSpoke, StorageChecker):
     title = CN_("GUI|Spoke", "INSTALLATION _DESTINATION")
 
     def __init__(self, *args, **kwargs):
-        StorageChecker.__init__(self, min_ram=isys.MIN_GUI_RAM)
+        StorageCheckHandler.__init__(self)
         NormalSpoke.__init__(self, *args, **kwargs)
         self.applyOnSkip = True
 
@@ -294,10 +302,72 @@ class StorageSpoke(NormalSpoke, StorageChecker):
 
         self._grabObjects()
 
+        self._autoPart.connect("toggled", self._method_radio_button_toggled)
+        self._customPart.connect("toggled", self._method_radio_button_toggled)
+        self._blivetGuiPart.connect("toggled", self._method_radio_button_toggled)
+
+        # hide radio buttons for spokes that have been marked as visited by the
+        # user interaction config file
+        if sam.get_screen_visited("CustomPartitioningSpoke"):
+            self._customPart.set_visible(False)
+            self._customPart.set_no_show_all(True)
+        if sam.get_screen_visited("BlivetGuiSpoke"):
+            self._blivetGuiPart.set_visible(False)
+            self._blivetGuiPart.set_no_show_all(True)
+
+        self._last_partitioning_method = self._get_selected_partitioning_method()
+
     def _grabObjects(self):
+        self._autoPart = self.builder.get_object("autopartRadioButton")
         self._customPart = self.builder.get_object("customRadioButton")
+        self._blivetGuiPart = self.builder.get_object("blivetguiRadioButton")
         self._encrypted = self.builder.get_object("encryptionCheckbox")
+        self._encryption_revealer = self.builder.get_object("encryption_revealer")
         self._reclaim = self.builder.get_object("reclaimCheckbox")
+        self._reclaim_revealer = self.builder.get_object("reclaim_checkbox_revealer")
+
+    def _get_selected_partitioning_method(self):
+        """Return partitioning method according to which method selection radio button is currently active."""
+        if self._autoPart.get_active():
+            return PartitioningMethod.AUTO
+        elif self._customPart.get_active():
+            return PartitioningMethod.CUSTOM
+        else:
+            return PartitioningMethod.BLIVET_GUI
+
+    def _method_radio_button_toggled(self, radio_button):
+        """Triggered when one of the partitioning method radio buttons is toggled."""
+        # Run only for an active radio button.
+        if not radio_button.get_active():
+            return
+
+        # Hide the encryption checkbox for Blivet GUI storage configuration,
+        # as Blivet GUI handles encryption per encrypted device, not globally.
+        if self._get_selected_partitioning_method() == PartitioningMethod.BLIVET_GUI:
+            self._encryption_revealer.set_reveal_child(False)
+        else:
+            self._encryption_revealer.set_reveal_child(True)
+
+        # Hide the reclaim space checkbox if automatic storage configuration is not used.
+        if self._get_selected_partitioning_method() == PartitioningMethod.AUTO:
+            self._reclaim_revealer.set_reveal_child(True)
+        else:
+            self._reclaim_revealer.set_reveal_child(False)
+
+        # is this a change from the last used method ?
+        method_changed = self._get_selected_partitioning_method() != self._last_partitioning_method
+        # are there any actions planned ?
+        actions_planned = self.storage.devicetree.actions.find()
+        if actions_planned:
+            if method_changed:
+                # clear any existing messages from the info bar
+                # - this generally means various storage related error warnings
+                self.clear_info()
+                self.set_warning(_("Partitioning method changed - planned storage configuration changes will be cancelled."))
+            else:
+                self.clear_info()
+                # reinstate any errors that should be shown to the user
+                self._check_problems()
 
     def apply(self):
         applyDiskSelection(self.storage, self.data, self.selected_disks)
@@ -331,7 +401,7 @@ class StorageSpoke(NormalSpoke, StorageChecker):
     @gtk_action_nowait
     def execute(self):
         # Spawn storage execution as a separate thread so there's no big delay
-        # going back from this spoke to the hub while StorageChecker.run runs.
+        # going back from this spoke to the hub while StorageCheckHandler.run runs.
         # Yes, this means there's a thread spawning another thread.  Sorry.
         threadMgr.add(AnacondaThread(name=constants.THREAD_EXECUTE_STORAGE,
                                      target=self._doExecute))
@@ -372,17 +442,18 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         # on the off-chance dasdfmt is running, we can't proceed further
         threadMgr.wait(constants.THREAD_DASDFMT)
         hubQ.send_message(self.__class__.__name__, _("Saving storage configuration..."))
-        if flags.automatedInstall and self.data.autopart.autopart and self.data.autopart.encrypted and not self.data.autopart.passphrase:
+        if flags.automatedInstall and self.data.autopart.encrypted and not self.data.autopart.passphrase:
             self.autopart_missing_passphrase = True
-            StorageChecker.errors = [_("Passphrase for autopart encryption not specified.")]
+            StorageCheckHandler.errors = [_("Passphrase for autopart encryption not specified.")]
             self._ready = True
             hubQ.send_ready(self.__class__.__name__, True)
             return
         try:
             doKickstartStorage(self.storage, self.data, self.instclass)
-        except (StorageError, KickstartParseError) as e:
+        # ValueError is here because Blivet is returning ValueError from devices/lvm.py
+        except (StorageError, KickstartParseError, ValueError) as e:
             log.error("storage configuration failed: %s", e)
-            StorageChecker.errors = str(e).split("\n")
+            StorageCheckHandler.errors = str(e).split("\n")
             hubQ.send_message(self.__class__.__name__, _("Failed to save storage configuration..."))
             self.data.bootloader.bootDrive = ""
             self.data.ignoredisk.drives = []
@@ -394,12 +465,17 @@ class StorageSpoke(NormalSpoke, StorageChecker):
             applyDiskSelection(self.storage, self.data, self.selected_disks)
         except BootLoaderError as e:
             log.error("BootLoader setup failed: %s", e)
-            StorageChecker.errors = str(e).split("\n")
+            StorageCheckHandler.errors = str(e).split("\n")
             hubQ.send_message(self.__class__.__name__, _("Failed to save storage configuration..."))
             self.data.bootloader.bootDrive = ""
+        except Exception as e:
+            log.error("unexpected storage error: %s", e)
+            StorageCheckHandler.errors = str(e).split("\n")
+            hubQ.send_message(self.__class__.__name__, _("Unexpected storage error"))
+            raise e
         else:
             if self.autopart or (flags.automatedInstall and (self.data.autopart.autopart or self.data.partition.seen)):
-                # run() executes StorageChecker.checkStorage in a seperate threat
+                # run() executes StorageCheckHandler.checkStorage in a seperate thread
                 self.run()
         finally:
             resetCustomStorageData(self.data)
@@ -450,10 +526,10 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         """ A short string describing the current status of storage setup. """
         msg = _("No disks selected")
 
-        if flags.automatedInstall and not self.storage.root_device:
-            msg = _("Kickstart insufficient")
-        elif threadMgr.get(constants.THREAD_DASDFMT):
+        if threadMgr.get(constants.THREAD_DASDFMT):
             msg = _("Formatting DASDs")
+        elif flags.automatedInstall and not self.storage.root_device:
+            msg = _("Kickstart insufficient")
         elif self.data.ignoredisk.onlyuse:
             msg = P_(("%d disk selected"),
                      ("%d disks selected"),
@@ -553,7 +629,7 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         self.autopart = self.data.autopart.autopart
         self.autoPartType = self.data.autopart.type
         if self.autoPartType is None:
-            self.autoPartType = AUTOPART_TYPE_LVM_THINP
+            self.autoPartType = AUTOPART_TYPE_LVM
         self.encrypted = self.data.autopart.encrypted
         self.passphrase = self.data.autopart.passphrase
 
@@ -598,8 +674,6 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         if self.encrypted:
             self._encrypted.set_active(True)
 
-        self._customPart.set_active(not self.autopart)
-
         self._update_summary()
 
         self._check_problems()
@@ -615,6 +689,7 @@ class StorageSpoke(NormalSpoke, StorageChecker):
 
     def initialize(self):
         NormalSpoke.initialize(self)
+        self.initialize_start()
 
         self.local_disks_box = self.builder.get_object("local_disks_box")
         self.specialized_disks_box = self.builder.get_object("specialized_disks_box")
@@ -623,12 +698,12 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         # See also https://bugzilla.gnome.org/show_bug.cgi?id=744721
         localViewport = self.builder.get_object("localViewport")
         specializedViewport = self.builder.get_object("specializedViewport")
-        self.local_disks_box.set_focus_hadjustment(localViewport.get_hadjustment())
-        self.specialized_disks_box.set_focus_hadjustment(specializedViewport.get_hadjustment())
+        self.local_disks_box.set_focus_hadjustment(Gtk.Scrollable.get_hadjustment(localViewport))
+        self.specialized_disks_box.set_focus_hadjustment(Gtk.Scrollable.get_hadjustment(specializedViewport))
 
         mainViewport = self.builder.get_object("storageViewport")
         mainBox = self.builder.get_object("storageMainBox")
-        mainBox.set_focus_vadjustment(mainViewport.get_vadjustment())
+        mainBox.set_focus_vadjustment(Gtk.Scrollable.get_vadjustment(mainViewport))
 
         threadMgr.add(AnacondaThread(name=constants.THREAD_STORAGE_WATCHER,
                       target=self._initialize))
@@ -689,8 +764,15 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         if len(self.disks) == 1 and not self.selected_disks:
             applyDiskSelection(self.storage, self.data, [self.disks[0].name])
 
-        self._ready = True
-        hubQ.send_ready(self.__class__.__name__, False)
+        # do not set ready in automated install before execute is run
+        if flags.automatedInstall:
+            self.execute()
+        else:
+            self._ready = True
+            hubQ.send_ready(self.__class__.__name__, False)
+
+        # report that the storage spoke has been initialized
+        self.initialize_done()
 
     def _update_summary(self):
         """ Update the summary based on the UI. """
@@ -723,7 +805,6 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         self.builder.get_object("summary_button_revealer").set_reveal_child(anySelected)
         self.builder.get_object("local_untouched_label_revealer").set_reveal_child(anySelected)
         self.builder.get_object("special_untouched_label_revealer").set_reveal_child(anySelected)
-        self.builder.get_object("other_options_label").set_sensitive(anySelected)
         self.builder.get_object("other_options_grid").set_sensitive(anySelected)
 
         if len(self.disks) == 0:
@@ -942,13 +1023,31 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         if self._last_selected_disks:
             disk_selection_changed = (self._last_selected_disks != set(self.selected_disks))
 
+        # We aren't (yet?) ready to support storage configuration to be done partially
+        # in the custom spoke and in the Blivet GUI spoke. There are some storage configuration
+        # one tool can create and the other might not understand, so detect that the user
+        # switched from on to to the other and reset storage configuration to the "clean"
+        # initial storage configuration snapshot in such a case.
+        partitioning_method_changed = False
+        current_partitioning_method = self._get_selected_partitioning_method()
+        if self._last_partitioning_method != current_partitioning_method:
+            log.info("Partitioning method changed from %s to %s.",
+                     self._last_partitioning_method.value,
+                     current_partitioning_method.value)
+            log.info("Rolling back planed storage configuration changes.")
+            partitioning_method_changed = True
+            self._last_partitioning_method = current_partitioning_method
+
         # remember the disk selection for future decisions
         self._last_selected_disks = set(self.selected_disks)
 
-        if disk_selection_changed:
+        if disk_selection_changed or partitioning_method_changed:
             # Changing disk selection is really, really complicated and has
             # always been causing numerous hard bugs. Let's not play the hero
             # game and just revert everything and start over again.
+            #
+            # Same thing for switching between different storage configuration
+            # methods (auto/custom/blivet-gui), at least for now.
             on_disk_storage.reset_to_snapshot(self.storage)
             self.disks = getDisks(self.storage.devicetree)
         else:
@@ -1007,11 +1106,14 @@ class StorageSpoke(NormalSpoke, StorageChecker):
         # 2) user wants to reclaim some more space => run the ResizeDialog
         # 3) we are just asked to do autopart => check free space and see if we need
         #                                        user to do anything more
-        self.autopart = not self._customPart.get_active()
+        self.autopart = not self._customPart.get_active() and not self._blivetGuiPart.get_active()
         disks = [d for d in self.disks if d.name in self.selected_disks]
         dialog = None
         if not self.autopart:
-            self.skipTo = "CustomPartitioningSpoke"
+            if self._customPart.get_active():
+                self.skipTo = "CustomPartitioningSpoke"
+            if self._blivetGuiPart.get_active():
+                self.skipTo = "BlivetGuiSpoke"
         elif self._reclaim.get_active():
             # HINT: change the logic of this 'if' statement if we are asked to
             # support "reclaim before custom partitioning"

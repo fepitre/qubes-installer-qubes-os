@@ -7,7 +7,7 @@ check() {
 }
 
 depends() {
-    echo img-lib dmsquash-live
+    echo livenet nfs img-lib convertfs ifcfg
     case "$(uname -m)" in
         s390*) echo cms ;;
     esac

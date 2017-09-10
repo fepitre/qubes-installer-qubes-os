@@ -100,8 +100,19 @@ class Accordion(Gtk.Box):
         return None
 
     def _on_expanded(self, obj, cb=None):
+        # Get the content of the expander.
+        child = obj.get_child()
+
+        if child:
+            # The expander is not expanded yet.
+            is_expanded = not obj.get_expanded()
+            # Show or hide the child.
+            # We need to set this manually because of a gtk bug:
+            # https://bugzilla.gnome.org/show_bug.cgi?id=776937
+            child.set_visible(is_expanded)
+
         if cb:
-            cb(obj.get_child())
+            cb(child)
 
     def _activate_selector(self, selector, activate, show_arrow):
         selector.set_chosen(activate)
@@ -388,7 +399,7 @@ class BasePage(Gtk.Box):
         label.set_markup("""<span fgcolor='dark grey' size='large' weight='bold'>%s</span>""" %
                 escape_markup(name))
         label.set_halign(Gtk.Align.START)
-        label.set_margin_left(24)
+        label.set_margin_start(24)
         return label
 
     def mark_selection(self, selector):
@@ -474,9 +485,6 @@ class Page(BasePage):
 
 
 class UnknownPage(BasePage):
-    def __init__(self, title):
-        # For this type of page, there's only one place to store members.
-        super().__init__(title)
 
     def add_selector(self, device, cb, mountpoint=""):
         accordion = self.get_ancestor(Accordion)
@@ -509,7 +517,7 @@ class CreateNewPage(BasePage):
         self._createBox = Gtk.Grid()
         self._createBox.set_row_spacing(6)
         self._createBox.set_column_spacing(6)
-        self._createBox.set_margin_left(16)
+        self._createBox.set_margin_start(16)
 
         label = Gtk.Label(label=_("You haven't created any mount points for your "
                             "%(product)s %(version)s installation yet.  "
@@ -523,7 +531,8 @@ class CreateNewPage(BasePage):
         self._createNewButton = Gtk.LinkButton(uri="",
                 label=C_("GUI|Custom Partitioning|Autopart Page", "_Click here to create them automatically."))
         label = self._createNewButton.get_children()[0]
-        label.set_alignment(0, 0.5)
+        label.set_xalign(0)
+        label.set_yalign(0.5)
         label.set_hexpand(True)
         label.set_line_wrap(True)
         label.set_use_underline(True)
@@ -571,8 +580,8 @@ class CreateNewPage(BasePage):
             if code == DEFAULT_AUTOPART_TYPE:
                 default = itr
 
-        combo.set_margin_left(18)
-        combo.set_margin_right(18)
+        combo.set_margin_start(18)
+        combo.set_margin_end(18)
         combo.set_hexpand(False)
         combo.set_active_iter(default or store.get_iter_first())
 

@@ -34,6 +34,8 @@ import logging
 log = logging.getLogger("anaconda")
 
 from pyanaconda.kickstart import getAvailableDiskSpace
+from pyanaconda.constants import STORAGE_SWAP_IS_RECOMMENDED
+from pykickstart.constants import FIRSTBOOT_DEFAULT
 
 class BaseInstallClass(object):
     # default to not being hidden
@@ -61,14 +63,19 @@ class BaseInstallClass(object):
     # help
     help_folder = "/usr/share/anaconda/help"
     help_main_page = "Installation_Guide.xml"
+    help_main_page_plain_text = "Installation_Guide.txt"
     help_placeholder = None
     help_placeholder_with_links = None
+    help_placeholder_plain_text = None
 
     # path to the installclass stylesheet, if any
     stylesheet = None
 
     # comps environment id to select by default
     defaultPackageEnvironment = None
+
+    # state firstboot should be in unless something special happens
+    firstboot = FIRSTBOOT_DEFAULT
 
     @property
     def l10n_domain(self):
@@ -117,9 +124,49 @@ class BaseInstallClass(object):
 
         storage.autopart_requests = autorequests
 
+    def customizeDefaultPartitioning(self, storage, data):
+        # Customize the default partitioning with kickstart data.
+        skipped_mountpoints = set()
+        skipped_fstypes = set()
+
+        # Create sets of mountpoints and fstypes to remove from autorequests.
+        if data.autopart.autopart:
+            # Remove /home if --nohome is selected.
+            if data.autopart.nohome:
+                skipped_mountpoints.add("/home")
+
+            # Remove /boot if --noboot is selected.
+            if data.autopart.noboot:
+                skipped_mountpoints.add("/boot")
+
+            # Remove swap if --noswap is selected.
+            if data.autopart.noswap:
+                skipped_fstypes.add("swap")
+
+                # Swap will not be recommended by the storage checker.
+                from pyanaconda.storage_utils import storage_checker
+                storage_checker.add_constraint(STORAGE_SWAP_IS_RECOMMENDED, False)
+
+        # Skip mountpoints we want to remove.
+        storage.autopart_requests = [req for req in storage.autopart_requests
+                                     if req.mountpoint not in skipped_mountpoints
+                                     and req.fstype not in skipped_fstypes]
+
     def configure(self, anaconda):
         anaconda.bootloader.timeout = self.bootloaderTimeoutDefault
         anaconda.bootloader.boot_args.update(self.bootloaderExtraArgs)
+
+        # The default partitioning should be always set.
+        self.setDefaultPartitioning(anaconda.storage)
+
+        # Customize the default partitioning with kickstart data.
+        self.customizeDefaultPartitioning(anaconda.storage, anaconda.ksdata)
+
+    def setStorageChecker(self, storage_checker):
+        # Update constraints and add or remove some checks in
+        # the storage checker to customize the storage sanity
+        # checking.
+        pass
 
     # sets default ONBOOT values and updates ksdata accordingly
     def setNetworkOnbootDefault(self, ksdata):

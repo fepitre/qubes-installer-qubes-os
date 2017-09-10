@@ -1,5 +1,5 @@
 #
-# screen_access.py:  anaconda thread management
+# screen_access.py:  screen access management for the Anaconda UI
 #
 # Copyright (C) 2016
 # Red Hat, Inc.  All rights reserved.
@@ -68,9 +68,8 @@ class ScreenAccessManager(object):
             # But load the config if a path is specified,
             # so that it is possible to hide spokes in
             # image and directory installation modes.
-            if config_path is None and can_touch_runtime_system(
-                                            msg="write user interaction config file",
-                                            touch_live=True):
+            if config_path is None and can_touch_runtime_system(msg="write user interaction config file",
+                                                                touch_live=True):
                 config_path = CONFIG_FILE_PATH
             if config_path and os.path.exists(config_path):
                 log.info("parsing existing user interaction config file in %s", config_path)
@@ -95,12 +94,15 @@ class ScreenAccessManager(object):
 
         with self._lock:
             new_config_file = not os.path.exists(config_path)
-            with open(config_path, "wt") as f:
-                if new_config_file:
-                    # we are creating a new file, so add a header that it was created by Anaconda,
-                    # including its version number
-                    f.write(self._get_new_config_header())
-                self._config.write(f)
+            try:
+                with open(config_path, "wt") as f:
+                    if new_config_file:
+                        # we are creating a new file, so add a header that it was created by Anaconda,
+                        # including its version number
+                        f.write(self._get_new_config_header())
+                    self._config.write(f)
+            except OSError:
+                log.exception("Can't write user interaction config file.")
 
     def _get_new_config_header(self):
         """Generate a header for use when Anaconda generates the user interaction config file.
@@ -217,7 +219,7 @@ class ScreenAccessManager(object):
     def get_screen_option_changed(self, screen_name, option_name):
         """Report if the given option on the specified screen has been changed by the user.
 
-        If the screen or option is unknown or if it syntax is incorrect then the option
+        If the screen or option is unknown or if its syntax is incorrect then the option
         is reported as not changed.
 
         :param str screen_name: name of the screen

@@ -16,8 +16,9 @@
 # License and may only be used or replicated with the express permission of
 # Red Hat, Inc.
 #
+from pyanaconda.constants_text import INPUT_PROCESSED
 from pyanaconda.ui.tui import simpleline as tui
-from pyanaconda.ui.tui.tuiobject import TUIObject, YesNoDialog
+from pyanaconda.ui.tui.tuiobject import TUIObject, YesNoDialog, HelpScreen
 from pyanaconda.ui.common import Spoke, StandaloneSpoke, NormalSpoke
 from pyanaconda.users import validatePassword, cryptPassword
 import re
@@ -26,6 +27,7 @@ from pyanaconda.iutil import setdeepattr, getdeepattr
 from pyanaconda.i18n import N_, _
 from pyanaconda.constants import PASSWORD_CONFIRM_ERROR_TUI, PW_ASCII_CHARS
 from pyanaconda.constants import PASSWORD_WEAK, PASSWORD_WEAK_WITH_ERROR
+from pyanaconda import ihelp
 
 __all__ = ["TUISpoke", "EditTUISpoke", "EditTUIDialog", "EditTUISpokeEntry",
            "StandaloneSpoke", "NormalTUISpoke"]
@@ -96,7 +98,26 @@ class NormalTUISpoke(TUISpoke, NormalSpoke):
        .. inheritance-diagram:: NormalTUISpoke
           :parts: 3
     """
-    pass
+
+    def input(self, args, key):
+        """Handle the input."""
+        # TRANSLATORS: 'h' to help
+        if key.lower() == tui.Prompt.HELP:
+            if self.has_help:
+                help_path = ihelp.get_help_path(self.helpFile, self.instclass, True)
+                self.app.switch_screen_modal(HelpScreen(self.app, help_path))
+                return INPUT_PROCESSED
+
+        return super(NormalTUISpoke, self).input(args, key)
+
+    def prompt(self, args=None):
+        """Return the prompt."""
+        prompt = TUISpoke.prompt(self, args)
+
+        if self.has_help:
+            prompt.add_help_option()
+
+        return prompt
 
 EditTUISpokeEntry = namedtuple("EditTUISpokeEntry", ["title", "attribute", "aux", "visible"])
 
@@ -133,7 +154,8 @@ class EditTUIDialog(NormalTUISpoke):
         self.value = None
         return True
 
-    def prompt(self, entry=None):
+    def prompt(self, args=None):
+        entry = args
         if not entry:
             return None
 
@@ -154,20 +176,21 @@ class EditTUIDialog(NormalTUISpoke):
                 self.value = ""
                 return None
 
-            valid, strength, message = validatePassword(pw, user=None, minlen=self.policy.minlen)
+            pw_score, _status_text, pw_quality, error_message = validatePassword(pw, user=None, minlen=self.policy.minlen)
 
-            if not valid:
-                print(message)
+            # if the score is equal to 0 and we have an error message set
+            if not pw_score and error_message:
+                print(error_message)
                 return None
 
-            if strength < self.policy.minquality:
+            if pw_quality < self.policy.minquality:
                 if self.policy.strict:
                     done_msg = ""
                 else:
                     done_msg = _("\nWould you like to use it anyway?")
 
-                if message:
-                    error = _(PASSWORD_WEAK_WITH_ERROR) % message + " " + done_msg
+                if error_message:
+                    error = _(PASSWORD_WEAK_WITH_ERROR) % error_message + " " + done_msg
                 else:
                     error = _(PASSWORD_WEAK) % done_msg
 
@@ -187,9 +210,16 @@ class EditTUIDialog(NormalTUISpoke):
             self.value = cryptPassword(pw)
             return None
         else:
-            return _("Enter a new value for '%s' and press [Enter]\n") % entry.title
+            return tui.Prompt(_("Enter a new value for '%(title)s' and press %(enter)s") % {
+                # TRANSLATORS: 'title' as a title of the entry
+                "title": entry.title,
+                # TRANSLATORS: 'enter' as the key ENTER
+                "enter": tui.Prompt.ENTER
+            })
 
-    def input(self, entry, key):
+    def input(self, args, key):
+        entry = args
+
         if callable(entry.aux):
             valid, err_msg = entry.aux(key)
             if not valid:
@@ -215,7 +245,8 @@ class OneShotEditTUIDialog(EditTUIDialog):
        the value is read
     """
 
-    def prompt(self, entry=None):
+    def prompt(self, args=None):
+        entry = args
         ret = None
 
         if entry:
@@ -337,6 +368,9 @@ class EditTUISpoke(NormalTUISpoke):
                 w = _prep_text(idx+1, entry)
 
             self._window.append(w)
+
+        if self.visible_fields:
+            self._window.append("")
 
         return True
 

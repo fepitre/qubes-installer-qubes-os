@@ -25,11 +25,11 @@ EXTRA_DIST = COPYING .coveragerc
 # This is needed for make distcheck.
 EXTRA_DIST += $(srcdir)/translation-canary/xgettext_werror.sh
 
-MAINTAINERCLEANFILES = Makefile.in config.guess config.h.in config.sub \
-                       depcomp install-sh ltmain.sh missing ABOUT-NLS \
-                       INSTALL aclocal.m4 configure *.pyc py-compile \
-		       m4/* po/Makefile.in.in po/Rules-quot \
-		       test-driver
+MAINTAINERCLEANFILES =	Makefile.in config.guess config.h.in config.sub \
+						depcomp install-sh ltmain.sh missing ABOUT-NLS \
+						INSTALL aclocal.m4 configure *.pyc zanata.xml.in \
+						py-compile m4/* po/Makefile.in.in po/Rules-quot \
+						test-driver
 
 CLEANFILES = *~
 
@@ -48,8 +48,14 @@ ARCHIVE_TAG   = $(PACKAGE_NAME)-$(PACKAGE_VERSION)-$(PACKAGE_RELEASE)
 ZANATA_PULL_ARGS = --transdir $(srcdir)/po/
 ZANATA_PUSH_ARGS = --srcfile $(srcdir)/po/anaconda.pot --push-type source --force
 
+DIST_NAME ?= $(shell echo "$(GIT_BRANCH)" | sed \
+				-e 's/^f//' \
+				-e 's/master/rawhide/')
+ARCH_NAME ?= $(shell uname -m)
+
 RC_RELEASE ?= $(shell date -u +0.1.%Y%m%d%H%M%S)
-MOCKCHROOT ?= fedora-25-$(shell uname -m)
+
+MOCKCHROOT ?= fedora-$(DIST_NAME)-$(ARCH_NAME)
 
 COVERAGE ?= coverage3
 USER_SITE_BASE ?= $(abs_top_builddir)/python-site
@@ -75,9 +81,20 @@ po-pull:
 	rpm -q zanata-python-client &>/dev/null || ( echo "need to run: dnf install zanata-python-client"; exit 1 )
 	( cd $(srcdir) && zanata pull $(ZANATA_PULL_ARGS) )
 
+po-push:
+	$(MAKE) -C po $(PACKAGE_NAME).pot-update
+	rm $(srcdir)/po/{main,extra}.pot
+	zanata push $(ZANATA_PUSH_ARGS)
+
+po-all:
+	$(MAKE) po-push
+	$(MAKE) po-pull
+
 # Try to fetch translations, but if that fails just keep going
 po-fallback:
 	-$(MAKE) po-pull
+
+
 
 scratch:
 	$(MAKE) ARCHIVE_TAG=HEAD dist
@@ -97,12 +114,21 @@ scratch-bumpver:
 	$(MAKE) -C po $(PACKAGE_NAME).pot-update
 
 release:
-	$(MAKE) dist && $(MAKE) tag
+	$(MAKE) po-all
+	$(MAKE) dist
+
+release-and-tag:
+	$(MAKE) dist
+	$(MAKE) tag
 
 rc-release: scratch-bumpver scratch
 	mock -r $(MOCKCHROOT) --scrub all || exit 1
 	mock -r $(MOCKCHROOT) --buildsrpm  --spec ./$(PACKAGE_NAME).spec --sources . --resultdir $(PWD) || exit 1
 	mock -r $(MOCKCHROOT) --rebuild *src.rpm --resultdir $(PWD) || exit 1
+
+test-install: rc-release
+	mock -r $(MOCKCHROOT) --scrub all || exit 1
+	mock -r $(MOCKCHROOT) --install $(PWD)/anaconda-*$(ARCH_NAME).rpm
 
 bumpver: po-pull
 	@opts="-n $(PACKAGE_NAME) -v $(PACKAGE_VERSION) -r $(PACKAGE_RELEASE) -b $(PACKAGE_BUGREPORT)" ; \
@@ -150,7 +176,7 @@ install-test-requires: install-buildrequires install-requires
 		    lorax mock parallel rpm-ostree virt-install pykickstart spin-kickstarts  \
 		    python3-rpmfluff python3-mock python3-pocketlint python3-nose-testconfig \
 		    python3-sphinx_rtd_theme libvirt-python3 python3-lxml python3-dogtail    \
-		    qemu-img
+		    qemu-img nosync.x86_64 nosync.i686 sudo
 
 # Generate an updates.img based on the changed files since the release
 # was tagged.  Updates are copied to ./updates-img and then the image is
@@ -178,7 +204,34 @@ runglade:
 	GLADE_MODULE_SEARCH_PATH=$(builddir)/widgets/src/.libs \
 	glade ${GLADE_FILE}
 
-ci: rc-release
+isolated-ci: test-install
+	@-rm -f tests/error_occured
+	mock -r $(MOCKCHROOT) --scrub all || exit 1
+# Install missing dependencies for running make install-test-requires
+	mock -r $(MOCKCHROOT) -i dnf python3 git || exit 1
+	mock -r $(MOCKCHROOT) --copyin $(srcdir) /root/anaconda || exit 1
+	mock -r $(MOCKCHROOT) --chroot -- "cd /root/anaconda && $(MAKE) install-test-requires" || exit 1
+	mock -r $(MOCKCHROOT) --chroot -- "cd /root/anaconda && ./autogen.sh && ./configure" || exit 1
+	mock -r $(MOCKCHROOT) --chroot -- "cd /root/anaconda && $(MAKE) bare-ci" || echo $$? > tests/error_occured
+	mock -r $(MOCKCHROOT) --chroot -- "mkdir -p /result && chmod 755 /result" || exit 1
+	mock -r $(MOCKCHROOT) --chroot -- "cp -r /root/anaconda/tests/**/*.log /root/anaconda/tests/*.log* /result/" || exit 1
+
+	-rm -rf $(srcdir)/result
+	cp -r "$$(mock -r $(MOCKCHROOT) -p)/result" $(srcdir)
+# Move builders logs
+	mv $(srcdir)/*.log $(srcdir)/result/
+	-mv $(srcdir)/result/test-suite.log.* $(srcdir)/result/test-suite.log
+	@if [ -f tests/error_occured ]; then \
+		echo "TEST FAILED"; \
+		status=$$(cat tests/error_occured); \
+		rm tests/error_occured; \
+		exit $$status; \
+	fi
+
+ci: test-install
+	$(MAKE) bare-ci
+
+bare-ci:
 	@rm -f tests/test-suite.log.*
 	@mkdir -p $(USER_SITE_PACKAGES)
 	@cp $(abs_builddir)/tests/usercustomize.py $(USER_SITE_PACKAGES)
@@ -193,8 +246,7 @@ ci: rc-release
 	@mv *rpm repo
 	@createrepo_c -p repo
 	@sudo $(MAKE) TMPDIR=/var/tmp COVERAGE_PROCESS_START=$(abs_builddir)/.coveragerc \
-		TEST_SUITE_LOG=test-suite.log.$$$$ TESTS=install/run_install_test.sh \
-		TEST_ANACONDA_REPO=file://$(abs_builddir)/repo/ PYTHONUSERBASE=$(USER_SITE_BASE) check
+		TEST_SUITE_LOG=test-suite.log.$$$$ PYTHONUSERBASE=$(USER_SITE_BASE) check
 	@cat tests/test-suite.log.* > tests/test-suite.log
 	@rm -f tests/test-suite.log.*
 	@rm -rf $(USER_SITE_BASE)

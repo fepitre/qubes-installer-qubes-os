@@ -168,13 +168,14 @@ class DriverDisk(commands.driverdisk.F14_DriverDisk, DracutArgsMixin):
         return "\n".join(dd_args)
 
 class Network(commands.network.F25_Network, DracutArgsMixin):
-    def dracut_args(self, args, lineno, net):
+    def dracut_args(self, args, lineno, obj):
         '''
         NOTE: The first 'network' line get special treatment:
             * '--activate' is always enabled
             * '--device' is optional (defaults to the 'ksdevice=' boot arg)
             * the device gets brought online in initramfs
         '''
+        net = obj
         netline = None
 
         # Setting only hostname in kickstart
@@ -214,14 +215,20 @@ class Network(commands.network.F25_Network, DracutArgsMixin):
 
         return netline
 
-class DisplayMode(commands.displaymode.FC3_DisplayMode, DracutArgsMixin):
+class DisplayMode(commands.displaymode.F26_DisplayMode, DracutArgsMixin):
     def dracut_args(self, args, lineno, obj):
+        ret = ""
         if self.displayMode == DISPLAY_MODE_CMDLINE:
-            return "inst.cmdline"
+            ret = "inst.cmdline"
         elif self.displayMode == DISPLAY_MODE_TEXT:
-            return "inst.text"
+            ret = "inst.text"
         elif self.displayMode == DISPLAY_MODE_GRAPHICAL:
-            return "inst.graphical"
+            ret = "inst.graphical"
+
+        if self.nonInteractive:
+            ret += " inst.noninteractive"
+
+        return ret
 
 class Bootloader(commands.bootloader.F21_Bootloader, DracutArgsMixin):
     def dracut_args(self, args, lineno, obj):
@@ -386,6 +393,8 @@ def ksnet_to_dracut(args, lineno, net, bootdev=False):
         # NOTE: does dracut actually support wireless? (do we care?)
         log.error("'%s': dracut doesn't support wireless networks",
                       " ".join(args))
+    if net.bridgeslaves:
+        line.append("bridge=%s:%s" % (net.device, net.bridgeslaves))
 
     return " ".join(line)
 
@@ -447,13 +456,13 @@ def ksnet_to_ifcfg(net, filename=None):
         if net.ipv6 == 'dhcp':
             ifcfg['DHCPV6C'] = "yes"
             ifcfg['IPV6_AUTOCONF'] = "no"
-            if net.ipv6gateway:
-                ifcfg['IPV6_DEFAULTGW'] = net.ipv6gateway
         elif net.ipv6 == 'auto':
             ifcfg['IPV6_AUTOCONF'] = "yes" # NOTE: redundant (this is the default)
         elif ':' in net.ipv6:
             ifcfg['IPV6ADDR'] = net.ipv6
             ifcfg['IPV6_AUTOCONF'] = "no"
+            if net.ipv6gateway:
+                ifcfg['IPV6_DEFAULTGW'] = net.ipv6gateway
 
     # misc stuff
     if net.mtu:
@@ -496,12 +505,12 @@ def ksnet_to_ifcfg(net, filename=None):
 
         for i, slave in enumerate(net.bondslaves.split(","), 1):
             slave_ifcfg = {
+                            'DEVICE': slave,
                             'TYPE' : "Ethernet",
                             'NAME' : "%s slave %s" % (dev, i),
                             'UUID' : str(uuid.uuid4()),
                             'ONBOOT' : "yes" if net.activate else "no",
                             'MASTER' : ifcfg['UUID'],
-                            'HWADDR' : readsysfile("/sys/class/net/%s/address" % slave),
                           }
             add_s390_settings(slave, slave_ifcfg)
             slave_filename = TMPDIR+"/ifcfg/ifcfg-%s" % "_".join(slave_ifcfg['NAME'].split(" "))
@@ -515,7 +524,7 @@ def ksnet_to_ifcfg(net, filename=None):
         ifcfg['NAME'] = "Team connection %s" % dev
         ifcfg['TEAM_CONFIG'] = net.teamconfig
 
-        for i, (slave, cfg) in enumerate(net.teamslaves):
+        for i, (slave, cfg) in enumerate(net.teamslaves, 1):
             slave_ifcfg = {
                             'DEVICE': slave,
                             'DEVICETYPE' : "TeamPort",
@@ -523,7 +532,6 @@ def ksnet_to_ifcfg(net, filename=None):
                             'UUID' : str(uuid.uuid4()),
                             'ONBOOT' : "yes" if net.activate else "no",
                             'TEAM_MASTER' : dev,
-#                            'HWADDR' : readsysfile("/sys/class/net/%s/address" % slave),
                           }
             if cfg:
                 slave_ifcfg['TEAM_PORT_CONFIG'] = cfg
@@ -539,13 +547,14 @@ def ksnet_to_ifcfg(net, filename=None):
         ifcfg['NAME'] = "Bridge connection %s" % dev
 
         options = {}
-        for opt in net.bridgeopts.split(","):
-            key, _, value = opt.partition("=")
-            if not value:
-                log.error("Invalid bridge option %s", opt)
-                continue
-            key = key.replace('-', '_')
-            options[key] = value
+        if net.bridgeopts:
+            for opt in net.bridgeopts.split(","):
+                key, _, value = opt.partition("=")
+                if not value:
+                    log.error("Invalid bridge option %s", opt)
+                    continue
+                key = key.replace('-', '_')
+                options[key] = value
         stp = options.pop("stp", None)
         if stp:
             ifcfg['STP'] = stp
@@ -561,12 +570,12 @@ def ksnet_to_ifcfg(net, filename=None):
             if update_virtual_slave_ifcfg(slave, setting="BRIDGE=%s" % dev):
                 continue
             slave_ifcfg = {
+                            'DEVICE': slave,
                             'TYPE' : "Ethernet",
                             'NAME' : "%s slave %s" % (dev, i),
                             'UUID' : str(uuid.uuid4()),
-                            'ONBOOT' : "yes",
+                            'ONBOOT' : "yes" if net.activate else "no",
                             'BRIDGE' : dev,
-                            'HWADDR' : readsysfile("/sys/class/net/%s/address" % slave),
                           }
             slave_filename = TMPDIR+"/ifcfg/ifcfg-%s" % "_".join(slave_ifcfg['NAME'].split(" "))
             log.info("writing ifcfg %s for slave %s of bridge %s", slave_filename, slave, dev)
@@ -618,7 +627,7 @@ def update_virtual_slave_ifcfg(slave, setting):
     update = False
     filename = "/tmp/ifcfg/ifcfg-%s" % slave
     if os.path.exists(filename):
-        with open(filename, "a+") as f:
+        with open(filename, "r+") as f:
             # pylint: disable=redefined-outer-name
             for line in f:
                 key, _sep, val = line.strip().partition("=")

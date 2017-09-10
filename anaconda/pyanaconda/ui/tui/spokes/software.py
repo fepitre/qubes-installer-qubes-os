@@ -22,7 +22,7 @@ from pyanaconda.ui.categories.software import SoftwareCategory
 from pyanaconda.ui.tui.spokes import NormalTUISpoke
 from pyanaconda.ui.tui.simpleline import TextWidget, ColumnWidget, CheckboxWidget
 from pyanaconda.threads import threadMgr, AnacondaThread
-from pyanaconda.packaging import DependencyError, PackagePayload, payloadMgr, NoSuchGroup
+from pyanaconda.payload import DependencyError, PackagePayload, payloadMgr, NoSuchGroup
 from pyanaconda.i18n import N_, _, C_
 
 from pyanaconda.constants import THREAD_PAYLOAD
@@ -40,6 +40,7 @@ class SoftwareSpoke(NormalTUISpoke):
           :parts: 3
     """
     title = N_("Software selection")
+    helpFile = "SoftwareSpoke.txt"
     category = SoftwareCategory
 
     def __init__(self, app, data, storage, payload, instclass):
@@ -66,6 +67,7 @@ class SoftwareSpoke(NormalTUISpoke):
     def initialize(self):
         # Start a thread to wait for the payload and run the first, automatic
         # dependency check
+        self.initialize_start()
         super(SoftwareSpoke, self).initialize()
         threadMgr.add(AnacondaThread(name=THREAD_SOFTWARE_WATCHER,
             target=self._initialize))
@@ -88,6 +90,14 @@ class SoftwareSpoke(NormalTUISpoke):
 
         # Apply the initial selection
         self._apply()
+
+        # Wait for the software selection thread that might be started by _apply().
+        # We are already running in a thread, so it should not needlessly block anything
+        # and only like this we can be sure we are really initialized.
+        threadMgr.wait(THREAD_CHECK_SOFTWARE)
+
+        # report that the software spoke has been initialized
+        self.initialize_done()
 
     def _payload_start(self):
         # Source is changing, invalidate the software selection and clear the
@@ -229,11 +239,8 @@ class SoftwareSpoke(NormalTUISpoke):
         right = [_prep(i, w) for i, w in enumerate(displayed) if i > mid]
 
         cw = ColumnWidget([(38, left), (38, right)], 2)
+        self._window += [TextWidget(msg), "", cw, ""]
 
-        self._window.append(TextWidget(msg))
-        self._window.append(TextWidget(""))
-        self._window.append(cw)
-        self._window.append(TextWidget(""))
         return True
 
     def input(self, args, key):
@@ -265,7 +272,7 @@ class SoftwareSpoke(NormalTUISpoke):
 
                 return INPUT_PROCESSED
             else:
-                return key
+                return super(SoftwareSpoke, self).input(args, key)
 
         # Process the environment selection
         if args is None:
@@ -302,6 +309,9 @@ class SoftwareSpoke(NormalTUISpoke):
         """ Private apply. """
         self.environment = self._get_environment(self._selection)
         self.addons = self._addons_selection if self.environment is not None else set()
+
+        if not self.environment:
+            return
 
         changed = False
 

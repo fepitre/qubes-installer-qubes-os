@@ -32,6 +32,7 @@ gi.require_version("GObject", "2.0")
 
 from gi.repository import Gdk, Gtk, AnacondaWidgets, Keybinder, GdkPixbuf, GLib, GObject
 
+from pyanaconda.flags import flags
 from pyanaconda.i18n import _, C_
 from pyanaconda.constants import WINDOW_TITLE_TEXT
 from pyanaconda import product, iutil, constants
@@ -40,6 +41,7 @@ from pyanaconda import threads
 from pyanaconda.ui import UserInterface, common
 from pyanaconda.ui.gui.utils import gtk_action_wait, gtk_call_once, unbusyCursor
 from pyanaconda.ui.gui.utils import watch_children, unwatch_children
+from pyanaconda.ui.gui.helpers import autoinstall_stopped
 from pyanaconda import ihelp
 import os.path
 
@@ -700,11 +702,11 @@ class GraphicalUserInterface(UserInterface):
             return
 
         # Get the primary monitor dimensions in pixels and mm from Gdk
-        primary = screen.get_primary_monitor()
-        monitor_geometry = screen.get_monitor_geometry(primary)
-        monitor_scale = screen.get_monitor_scale_factor(primary)
-        monitor_width_mm = screen.get_monitor_width_mm(primary)
-        monitor_height_mm = screen.get_monitor_height_mm(primary)
+        primary_monitor = display.get_primary_monitor()
+        monitor_geometry = primary_monitor.get_geometry()
+        monitor_scale = primary_monitor.get_scale_factor()
+        monitor_width_mm = primary_monitor.get_width_mm()
+        monitor_height_mm = primary_monitor.get_height_mm()
 
         # Sometimes gdk returns 0 for physical widths and heights
         if monitor_height_mm == 0 or monitor_width_mm == 0:
@@ -805,9 +807,13 @@ class GraphicalUserInterface(UserInterface):
         # If we are doing a kickstart install, some standalone spokes
         # could already be filled out.  In that case, we do not want
         # to display them.
-        if self._is_standalone(obj) and obj.completed:
-            del(obj)
-            return None
+        if self._is_standalone(obj):
+            if obj.completed:
+                del(obj)
+                return None
+            elif flags.automatedInstall:
+                autoinstall_stopped("User interaction required on standalone spoke %s" %
+                                    obj.__class__.__name__)
 
         # Use connect_after so classes can add actions before we change screens
         obj.window.connect_after("continue-clicked", self._on_continue_clicked)
@@ -847,7 +853,6 @@ class GraphicalUserInterface(UserInterface):
                     return
 
             self._currentAction.initialize()
-            self._currentAction.entry()
             self._currentAction.refresh()
 
             self._currentAction.window.set_beta(not self._isFinal)
@@ -889,6 +894,8 @@ class GraphicalUserInterface(UserInterface):
                             STYLE_PROVIDER_PRIORITY_UPDATES)
 
             self.mainWindow.setCurrentAction(self._currentAction)
+            # the window corresponding to the ection should now be visible to the user
+            self._currentAction.entered.emit(self._currentAction)
 
             # Do this at the last possible minute.
             unbusyCursor()
@@ -947,7 +954,7 @@ class GraphicalUserInterface(UserInterface):
     ###
     ### SIGNAL HANDLING METHODS
     ###
-    def _on_continue_clicked(self, win, user_data=None):
+    def _on_continue_clicked(self, window, user_data=None):
         # Autostep needs to be triggered just before switching to the next screen
         # (or before quiting the installation if there are no more screens) to be consistent
         # in both fully automatic kickstart installation and for installation with an incomplete
@@ -963,12 +970,12 @@ class GraphicalUserInterface(UserInterface):
                 self._currentAction.autostep()
                 return
 
-        if not win.get_may_continue() or win != self._currentAction.window:
+        if not window.get_may_continue() or window != self._currentAction.window:
             return
 
         # The continue button may still be clickable between this handler finishing
         # and the next window being displayed, so turn the button off.
-        win.set_may_continue(False)
+        window.set_may_continue(False)
 
         # If we're on the last screen, clicking Continue quits.
         if len(self._actions) == 1:
@@ -1019,14 +1026,15 @@ class GraphicalUserInterface(UserInterface):
             self._on_continue_clicked(nextAction)
             return
 
-        self._currentAction.exit()
-        nextAction.entry()
+        self._currentAction.exited.emit(self._currentAction)
 
         nextAction.refresh()
 
         # Do this last.  Setting up curAction could take a while, and we want
         # to leave something on the screen while we work.
         self.mainWindow.setCurrentAction(nextAction)
+        # the new spoke should be now visible, trigger the entered signal
+        nextAction.entered.emit(nextAction)
         self._currentAction = nextAction
         self._actions.pop(0)
 
@@ -1045,7 +1053,7 @@ class GraphicalUserInterface(UserInterface):
             dialog.window.destroy()
 
         if rc == 1:
-            self._currentAction.exit()
+            self._currentAction.exited.emit(self._currentAction)
             iutil.ipmi_abort(scripts=self.data.scripts)
             sys.exit(0)
 
@@ -1067,9 +1075,9 @@ class GraphicalExceptionHandlingIface(meh.ui.gui.GraphicalIntf):
 
         self._lightbox_func = lightbox_func
 
-    def mainExceptionWindow(self, text, exn_file, *args, **kwargs):
+    def mainExceptionWindow(self, text, exnFile, *args, **kwargs):
         meh_intf = meh.ui.gui.GraphicalIntf()
-        exc_window = meh_intf.mainExceptionWindow(text, exn_file)
+        exc_window = meh_intf.mainExceptionWindow(text, exnFile)
         exc_window.main_window.set_decorated(False)
 
         self._lightbox_func()

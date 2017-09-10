@@ -26,6 +26,7 @@ import threading
 
 from pyanaconda.bootloader import get_bootloader
 from pyanaconda import constants
+from pyanaconda.constants import DisplayModes
 from pyanaconda import iutil
 from pyanaconda import addons
 
@@ -41,7 +42,8 @@ class Anaconda(object):
         self.canReIPL = False
         self.desktop = desktop.Desktop()
         self.dir = None
-        self.displayMode = None
+        self._display_mode = None
+        self._interactive_mode = True
         self.gui_startup_failed = False
         self.id = None
         self._instClass = None
@@ -105,7 +107,7 @@ class Anaconda(object):
 
     @property
     def payload(self):
-        # Try to find the packaging payload class.  First try the install
+        # Try to find the payload class.  First try the install
         # class.  If it doesn't give us one, fall back to the default.
         if not self._payload:
             klass = self.instClass.getBackend()
@@ -114,16 +116,16 @@ class Anaconda(object):
                 from pyanaconda.flags import flags
 
                 if self.ksdata.ostreesetup.seen:
-                    from pyanaconda.packaging.rpmostreepayload import RPMOSTreePayload
+                    from pyanaconda.payload.rpmostreepayload import RPMOSTreePayload
                     klass = RPMOSTreePayload
                 elif flags.livecdInstall:
-                    from pyanaconda.packaging.livepayload import LiveImagePayload
+                    from pyanaconda.payload.livepayload import LiveImagePayload
                     klass = LiveImagePayload
                 elif self.ksdata.method.method == "liveimg":
-                    from pyanaconda.packaging.livepayload import LiveImageKSPayload
+                    from pyanaconda.payload.livepayload import LiveImageKSPayload
                     klass = LiveImageKSPayload
                 else:
-                    from pyanaconda.packaging.dnfpayload import DNFPayload
+                    from pyanaconda.payload.dnfpayload import DNFPayload
                     klass = DNFPayload
 
             self._payload = klass(self.ksdata)
@@ -157,24 +159,102 @@ class Anaconda(object):
             import blivet
             import blivet.arch
 
-            import gi
-            gi.require_version("BlockDev", "1.0")
-
-            from gi.repository import BlockDev as blockdev
             self._storage = blivet.Blivet(ksdata=self.ksdata)
-
-            if self.instClass.defaultFS:
-                self._storage.set_default_fstype(self.instClass.defaultFS)
+            self._set_default_fstype(self._storage)
 
             if blivet.arch.is_s390():
-                # want to make sure s390 plugin is loaded
-                if "s390" not in blockdev.get_available_plugin_names():
-                    plugin = blockdev.PluginSpec()
-                    plugin.name = blockdev.Plugin.S390
-                    plugin.so_name = None
-                    blockdev.reinit([plugin], reload=False)
+                self._load_plugin_s390()
 
         return self._storage
+
+    @property
+    def display_mode(self):
+        return self._display_mode
+
+    @display_mode.setter
+    def display_mode(self, new_mode):
+        if isinstance(new_mode, DisplayModes):
+            if self._display_mode:
+                old_mode = self._display_mode
+                log.debug("changing display mode from %s to %s",
+                          old_mode.value, new_mode.value)
+            else:
+                log.debug("setting display mode to %s", new_mode.value)
+            self._display_mode = new_mode
+        else:  # unknown mode name - ignore & log an error
+            log.error("tried to set an unknown display mode name: %s", new_mode.value)
+
+    @property
+    def interactive_mode(self):
+        return self._interactive_mode
+
+    @interactive_mode.setter
+    def interactive_mode(self, value):
+        if self._interactive_mode != value:
+            self._interactive_mode = value
+            if value:
+                log.debug("working in interative mode")
+            else:
+                log.debug("working in noninteractive mode")
+
+    @property
+    def gui_mode(self):
+        """Report if Anaconda should run with the GUI."""
+        return self._display_mode == DisplayModes.GUI
+
+    @property
+    def noninteractive_gui_mode(self):
+        """Report if Anaconda should run with noninteractive GUI."""
+        return (self._display_mode == DisplayModes.GUI
+                and not self._interactive_mode)
+
+    @property
+    def tui_mode(self):
+        """Report if Anaconda should run with the TUI."""
+        return self._display_mode == DisplayModes.TUI
+
+    @property
+    def noninteractive_tui_mode(self):
+        """Report if Anaconda should run with noninteractive TUI."""
+        return (self._display_mode == DisplayModes.TUI
+                and not self._interactive_mode)
+
+    def _set_default_fstype(self, storage):
+        fstype = None
+        boot_fstype = None
+
+        # Get the default fstype from a kickstart file.
+        if self.ksdata.autopart.autopart and self.ksdata.autopart.fstype:
+            fstype = self.ksdata.autopart.fstype
+            boot_fstype = self.ksdata.autopart.fstype
+        # Or from an install class.
+        elif self.instClass.defaultFS:
+            fstype = self.instClass.defaultFS
+            boot_fstype = None
+
+        # Set the default fstype.
+        if fstype:
+            storage.set_default_fstype(fstype)
+
+        # Set the default boot fstype.
+        if boot_fstype:
+            storage.set_default_boot_fstype(boot_fstype)
+
+    def _load_plugin_s390(self):
+        # Make sure s390 plugin is loaded.
+        import gi
+        gi.require_version("BlockDev", "2.0")
+        from gi.repository import BlockDev as blockdev
+
+        # Is the plugin loaded? We are done then.
+        if "s390" in blockdev.get_available_plugin_names():
+            return
+
+        # Otherwise, load the plugin.
+        plugin = blockdev.PluginSpec()
+        plugin.name = blockdev.Plugin.S390
+        plugin.so_name = None
+        blockdev.reinit([plugin], reload=False)
 
     def dumpState(self):
         from meh import ExceptionInfo
@@ -215,7 +295,7 @@ class Anaconda(object):
         if self._intf:
             raise RuntimeError("Second attempt to initialize the InstallInterface")
 
-        if self.displayMode == 'g':
+        if self.gui_mode:
             from pyanaconda.ui.gui import GraphicalUserInterface
             # Run the GUI in non-fullscreen mode, so live installs can still
             # use the window manager
@@ -226,7 +306,8 @@ class Anaconda(object):
             # needs to be refreshed now we know if gui or tui will take place
             addon_paths = addons.collect_addon_paths(constants.ADDON_PATHS,
                                                      ui_subdir="gui")
-        elif self.displayMode in ['t', 'c']: # text and command line are the same
+        elif self.tui_mode or self.noninteractive_tui_mode:
+            # TUI and noninteractive TUI are the same in this regard
             from pyanaconda.ui.tui import TextUserInterface
             self._intf = TextUserInterface(self.storage, self.payload,
                                            self.instClass)
@@ -234,8 +315,13 @@ class Anaconda(object):
             # needs to be refreshed now we know if gui or tui will take place
             addon_paths = addons.collect_addon_paths(constants.ADDON_PATHS,
                                                      ui_subdir="tui")
+        elif not self.display_mode:
+            raise RuntimeError("Display mode not set.")
         else:
-            raise RuntimeError("Unsupported displayMode: %s" % self.displayMode)
+            # this should generally never happen, as display_mode now won't let
+            # and invalid value to be set, but let's leave it here just in case
+            # something ultra crazy happens
+            raise RuntimeError("Unsupported display mode: %s" % self.display_mode)
 
         if addon_paths:
             self._intf.update_paths(addon_paths)

@@ -18,7 +18,7 @@
 m4_define(python_required_version, 3.4)
 
 AC_PREREQ([2.63])
-AC_INIT([anaconda], [25.20.9], [anaconda-devel-list@redhat.com])
+AC_INIT([anaconda], [26.21.11], [anaconda-devel-list@redhat.com])
 
 # Disable building static libraries.
 # This needs to be set before initializing automake
@@ -90,6 +90,10 @@ PKG_CHECK_MODULES([PYTHON3], [python3], [
 ANACONDA_PKG_CHECK_MODULES([RPM], [rpm >= 4.10.0])
 ANACONDA_PKG_CHECK_MODULES([LIBARCHIVE], [libarchive >= 3.0.4])
 
+# Find git branch
+s_git_branch="`./scripts/git-find-branch | sed 's/unstable/master/'`"
+AC_SUBST(GIT_BRANCH, [$s_git_branch])
+
 # GCC likes to bomb out on some ridiculous warnings.  Add your favorites
 # here.
 SHUT_UP_GCC="-Wno-unused-result"
@@ -97,9 +101,7 @@ SHUT_UP_GCC="-Wno-unused-result"
 # Add remaining compiler flags we want to use
 CFLAGS="$CFLAGS -Wall -Werror $SHUT_UP_GCC"
 
-# Get the release number from the spec file
-rel="`awk '/^Release:/ { split($2, r, "%"); print r[[1]] }' $srcdir/anaconda.spec`"
-AC_SUBST(PACKAGE_RELEASE, [$rel])
+AC_SUBST(PACKAGE_RELEASE, [1])
 
 # Perform arch related tests
 AC_CANONICAL_BUILD
@@ -111,6 +113,8 @@ AM_CONDITIONAL(IS_LIVEINST_ARCH,
 AC_CONFIG_SUBDIRS([widgets])
 
 AC_CONFIG_FILES([Makefile
+                 anaconda.spec
+                 zanata.xml
                  data/Makefile
                  data/command-stubs/Makefile
                  docs/Makefile
@@ -129,7 +133,7 @@ AC_CONFIG_FILES([Makefile
                  pyanaconda/Makefile
                  pyanaconda/version.py
                  pyanaconda/isys/Makefile
-                 pyanaconda/packaging/Makefile
+                 pyanaconda/payload/Makefile
                  pyanaconda/ui/Makefile
                  pyanaconda/ui/categories/Makefile
                  pyanaconda/ui/lib/Makefile

@@ -19,6 +19,7 @@
 
 from pyanaconda.ui.lib.space import FileSystemSpaceChecker, DirInstallSpaceChecker
 from pyanaconda.ui.tui.hubs import TUIHub
+from pyanaconda.ui.tui.simpleline import Prompt
 from pyanaconda.flags import flags
 from pyanaconda.errors import CmdlineError
 from pyanaconda.i18n import N_, _, C_
@@ -34,6 +35,7 @@ class SummaryHub(TUIHub):
           :parts: 3
     """
     title = N_("Installation")
+    helpFile = "SummaryHub.txt"
 
     def __init__(self, app, data, storage, payload, instclass):
         super(SummaryHub, self).__init__(app, data, storage, payload, instclass)
@@ -80,25 +82,30 @@ class SummaryHub(TUIHub):
         # which expects an environment for interactive install) will continue
         # to behave the same, so the user can hit 'b' at the prompt and ignore
         # the warning.
-        if flags.automatedInstall and self._checker and not self._checker.check():
-            print(self._checker.error_message)
-            log.error(self._checker.error_message)
+        if flags.automatedInstall and not incompleteSpokes:
 
-            # Unset the checker so everything passes next time
-            self._checker = None
+            # Check the available space.
+            if self._checker and not self._checker.check():
 
-            if not flags.ksprompt:
-                return None
+                # Space is not ok.
+                print(self._checker.error_message)
+                log.error(self._checker.error_message)
+
+                # Unset the checker so everything passes next time.
+                self._checker = None
+
+                if not flags.ksprompt:
+                    return None
+                else:
+                    # TRANSLATORS: 'b' to begin installation
+                    print(_("Enter '%s' to ignore the warning and attempt to install anyway.") %
+                            # TRANSLATORS: 'b' to begin installation
+                            C_("TUI|Spoke Navigation", "b")
+                            )
             else:
-                # TRANSLATORS: 'b' to begin installation
-                print(_("Enter '%s' to ignore the warning and attempt to install anyway.") %
-                        # TRANSLATORS: 'b' to begin installation
-                        C_("TUI|Spoke Navigation", "b")
-                        )
-        elif flags.automatedInstall and not incompleteSpokes:
-            # Space is ok and spokes are complete, continue
-            self.close()
-            return None
+                # Space is ok and spokes are complete, continue.
+                self.close()
+                return None
 
         # cmdline mode and incomplete spokes raises and error
         if not flags.ksprompt and incompleteSpokes:
@@ -116,14 +123,12 @@ class SummaryHub(TUIHub):
 
         # override the default prompt since we want to offer the 'b' to begin
         # installation option here
-        return _("  Please make your choice from above ['%(quit)s' to quit | '%(begin)s' to begin installation |\n  '%(refresh)s' to refresh]: ") % {
-            # TRANSLATORS: 'q' to quit
-            'quit': C_('TUI|Spoke Navigation', 'q'),
-            # TRANSLATORS: 'b' to begin installation
-            'begin': C_('TUI|Spoke Navigation', 'b'),
-            # TRANSLATORS: 'r' to refresh
-            'refresh': C_('TUI|Spoke Navigation', 'r')
-        }
+        prompt = super(SummaryHub, self).prompt(args)
+        # this screen cannot be closed
+        prompt.remove_option(Prompt.CONTINUE)
+        # TRANSLATORS: 'b' to begin installation
+        prompt.add_option(C_("TUI|Spoke Navigation", "b"), _("to begin installation"))
+        return prompt
 
     def input(self, args, key):
         """Handle user input. Numbers are used to show a spoke, the rest is passed

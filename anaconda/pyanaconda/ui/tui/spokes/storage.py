@@ -18,7 +18,7 @@
 #
 
 import gi
-gi.require_version("BlockDev", "1.0")
+gi.require_version("BlockDev", "2.0")
 
 from gi.repository import BlockDev as blockdev
 
@@ -27,7 +27,7 @@ from pyanaconda.ui.categories.system import SystemCategory
 from pyanaconda.ui.tui.spokes import NormalTUISpoke
 from pyanaconda.ui.tui.simpleline import TextWidget, CheckboxWidget
 from pyanaconda.ui.tui.tuiobject import YesNoDialog
-from pyanaconda.storage_utils import AUTOPART_CHOICES, sanity_check, SanityError, SanityWarning
+from pyanaconda.storage_utils import AUTOPART_CHOICES, storage_checker
 
 from blivet import arch
 from blivet.size import Size
@@ -36,13 +36,13 @@ from blivet.devices import DASDDevice, FcoeDiskDevice, iScsiDiskDevice, Multipat
 from pyanaconda.flags import flags
 from pyanaconda.kickstart import doKickstartStorage, resetCustomStorageData
 from pyanaconda.threads import threadMgr, AnacondaThread
-from pyanaconda.constants import THREAD_STORAGE, THREAD_STORAGE_WATCHER, THREAD_DASDFMT, DEFAULT_AUTOPART_TYPE
+from pyanaconda.constants import THREAD_STORAGE, THREAD_STORAGE_WATCHER, DEFAULT_AUTOPART_TYPE
 from pyanaconda.constants import PAYLOAD_STATUS_PROBING_STORAGE
 from pyanaconda.constants_text import INPUT_PROCESSED
 from pyanaconda.i18n import _, P_, N_, C_
 from pyanaconda.bootloader import BootLoaderError
 
-from pykickstart.constants import CLEARPART_TYPE_ALL, CLEARPART_TYPE_LINUX, CLEARPART_TYPE_NONE, AUTOPART_TYPE_LVM, AUTOPART_TYPE_LVM_THINP
+from pykickstart.constants import CLEARPART_TYPE_ALL, CLEARPART_TYPE_LINUX, CLEARPART_TYPE_NONE, AUTOPART_TYPE_LVM
 from pykickstart.errors import KickstartParseError
 
 from collections import OrderedDict
@@ -67,6 +67,7 @@ class StorageSpoke(NormalTUISpoke):
           :parts: 3
     """
     title = N_("Installation Destination")
+    helpFile = "StorageSpoke.txt"
     category = SystemCategory
 
     def __init__(self, app, data, storage, payload, instclass):
@@ -110,7 +111,7 @@ class StorageSpoke(NormalTUISpoke):
     def ready(self):
         # By default, the storage spoke is not ready.  We have to wait until
         # storageInitialize is done.
-        return self._ready and not (threadMgr.get(THREAD_STORAGE_WATCHER) or threadMgr.get(THREAD_DASDFMT))
+        return self._ready and not threadMgr.get(THREAD_STORAGE_WATCHER)
 
     @property
     def mandatory(self):
@@ -306,7 +307,7 @@ class StorageSpoke(NormalTUISpoke):
                     self.close()
                 return INPUT_PROCESSED
             else:
-                return key
+                return super(StorageSpoke, self).input(args, key)
 
     def run_dasdfmt(self, to_format):
         """
@@ -351,7 +352,7 @@ class StorageSpoke(NormalTUISpoke):
         self.data.clearpart.drives = self.selected_disks[:]
 
         if self.data.autopart.type is None:
-            self.data.autopart.type = AUTOPART_TYPE_LVM_THINP
+            self.data.autopart.type = AUTOPART_TYPE_LVM
 
         if self.autopart:
             self.clearPartType = CLEARPART_TYPE_ALL
@@ -404,22 +405,18 @@ class StorageSpoke(NormalTUISpoke):
             self.data.bootloader.bootDrive = ""
         else:
             print(_("Checking storage configuration..."))
-            exns = sanity_check(self.storage)
-            errors = [str(exn) for exn in exns if isinstance(exn, SanityError)]
-            warnings = [str(exn) for exn in exns if isinstance(exn, SanityWarning)]
-            (self.errors, self.warnings) = (errors, warnings)
-            for e in self.errors:
-                log.error(e)
-                print(e)
-            for w in self.warnings:
-                log.warning(w)
-                print(w)
+            report = storage_checker.check(self.storage)
+            print("\n".join(report.all_errors))
+            report.log(log)
+            self.errors = report.errors
+            self.warnings = report.warnings
         finally:
             resetCustomStorageData(self.data)
             self._ready = True
 
     def initialize(self):
         NormalTUISpoke.initialize(self)
+        self.initialize_start()
 
         threadMgr.add(AnacondaThread(name=THREAD_STORAGE_WATCHER,
                                      target=self._initialize))
@@ -443,6 +440,9 @@ class StorageSpoke(NormalTUISpoke):
 
         self._update_summary()
         self._ready = True
+
+        # report that the storage spoke has been initialized
+        self.initialize_done()
 
 class AutoPartSpoke(NormalTUISpoke):
     """ Autopartitioning options are presented here.
@@ -507,7 +507,7 @@ class AutoPartSpoke(NormalTUISpoke):
                 self.close()
                 return INPUT_PROCESSED
             else:
-                return key
+                return super(AutoPartSpoke, self).input(args, key)
 
         if 0 <= keyid < len(self.parttypelist):
             self.clearPartType = PARTTYPES[self.parttypelist[keyid]]
@@ -556,7 +556,7 @@ class PartitionSchemeSpoke(NormalTUISpoke):
                 self.close()
                 return INPUT_PROCESSED
             else:
-                return key
+                return super(PartitionSchemeSpoke, self).input(args, key)
 
         if 0 <= keyid < len(self.partschemes):
             self._selection = keyid

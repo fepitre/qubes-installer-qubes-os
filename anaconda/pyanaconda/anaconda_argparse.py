@@ -31,6 +31,8 @@ from argparse import ArgumentParser, ArgumentError, HelpFormatter, Namespace, Ac
 from pyanaconda.flags import BootArgs
 from pyanaconda.flags import flags as flags_instance
 
+from pyanaconda.constants import DisplayModes
+
 import logging
 log = logging.getLogger("anaconda")
 
@@ -383,16 +385,41 @@ def getArgumentParser(version_string, boot_cmdline=None):
     # Version
     ap.add_argument('--version', action='version', version="%(prog)s " + version_string)
 
+    class SetCmdlineMode(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            # We need to save both display mode to TEXT and set noninteractive flag
+            setattr(namespace, "display_mode", DisplayModes.TUI)
+            setattr(namespace, "noninteractive", True)
+
     # Interface
-    ap.add_argument("-C", "--cmdline", dest="display_mode", action="store_const", const="c",
-                    default="g", help=help_parser.help_text("cmdline"))
-    ap.add_argument("-G", "--graphical", dest="display_mode", action="store_const", const="g",
-                    help=help_parser.help_text("graphical"))
-    ap.add_argument("-T", "--text", dest="display_mode", action="store_const", const="t",
+    ap.add_argument("-G", "--graphical", dest="display_mode", action="store_const", const=DisplayModes.GUI,
+                    default=DisplayModes.GUI, help=help_parser.help_text("graphical"))
+    ap.add_argument("-T", "--text", dest="display_mode", action="store_const", const=DisplayModes.TUI,
                     help=help_parser.help_text("text"))
+    ap.add_argument("-C", "--cmdline", action=SetCmdlineMode, nargs=0,
+                    help=help_parser.help_text("cmdline"))
+    ap.add_argument("--noninteractive", dest="noninteractive", action="store_true",
+                    help=help_parser.help_text("noninteractive"))
 
     # Network
     ap.add_argument("--proxy", metavar='PROXY_URL', help=help_parser.help_text("proxy"))
+
+    class SetWaitfornet(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            value = None
+            try:
+                ivalue = int(values)
+            except ValueError:
+                pass
+            else:
+                if ivalue > 0:
+                    value = ivalue
+            if value is None:
+                value = 0
+            setattr(namespace, self.dest, value)
+
+    ap.add_argument("--waitfornet", dest="waitfornet", metavar="TIMEOUT_IN_SECONDS",
+                    action=SetWaitfornet, help=help_parser.help_text("waitfornet"))
 
     # Method of operation
     ap.add_argument("-d", "--debug", dest="debug", action="store_true",
@@ -402,6 +429,8 @@ def getArgumentParser(version_string, boot_cmdline=None):
                     help=help_parser.help_text("ks"))
     ap.add_argument("--kickstart", dest="ksfile", metavar="KICKSTART_PATH",
                     help=help_parser.help_text("kickstart"))
+    ap.add_argument("--ksstrict", dest="ksstrict", action="store_true",
+                    default=False, help=help_parser.help_text("ksstrict"))
     ap.add_argument("--rescue", dest="rescue", action="store_true", default=False,
                     help=help_parser.help_text("rescue"))
     ap.add_argument("--armplatform", dest="armPlatform", type=str, metavar="PLATFORM_ID",
@@ -537,6 +566,6 @@ def getArgumentParser(version_string, boot_cmdline=None):
     # some defaults change based on cmdline flags
     if boot_cmdline is not None:
         if "console" in boot_cmdline:
-            ap.set_defaults(display_mode="t")
+            ap.set_defaults(display_mode=DisplayModes.TUI)
 
     return ap

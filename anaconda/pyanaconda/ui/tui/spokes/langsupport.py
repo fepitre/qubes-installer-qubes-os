@@ -38,10 +38,12 @@ class LangSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
           :parts: 3
     """
     title = N_("Language settings")
+    helpFile = "LangSupportSpoke.txt"
     category = LocalizationCategory
 
     def __init__(self, app, data, storage, payload, instclass):
         NormalTUISpoke.__init__(self, app, data, storage, payload, instclass)
+        self.initialize_start()
 
         self._langs = [localization.get_english_name(lang)
                         for lang in localization.get_available_translations()]
@@ -50,6 +52,7 @@ class LangSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
         self._locales = dict((lang, localization.get_language_locales(lang))
                                 for lang in self._langs_and_locales.values())
         self._selected = self.data.lang.lang
+        self.initialize_done()
 
     @property
     def completed(self):
@@ -97,7 +100,7 @@ class LangSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
         right = [_prep(i, w) for i, w in enumerate(displayed) if i > 2*middle]
 
         c = ColumnWidget([(24, left), (24, center), (24, right)], 3)
-        self._window.append(c)
+        self._window += [c, ""]
 
         return True
 
@@ -122,18 +125,15 @@ class LangSpoke(FirstbootSpokeMixIn, NormalTUISpoke):
             self.app.switch_screen(self, None)
             return True
         else:
-            return key
+            return super(LangSpoke, self).input(args, key)
 
     def prompt(self, args=None):
-        """ Override default prompt with a custom prompt. """
-        return _("Please select language support to install.\n['%(back)s' to return to language list, '%(continue)s' to continue, '%(quit)s' to quit]: ") % {
-            # TRANSLATORS: 'b' to go back
-            'back': C_('TUI|Spoke Navigation|Language Support', 'b'),
-            # TRANSLATORS:'c' to continue
-            'continue': C_('TUI|Spoke Navigation|Language Support', 'c'),
-            # TRANSLATORS:'q' to quit
-            'quit': C_('TUI|Spoke Navigation|Language Support', 'q')
-        }
+        """ Customize default prompt. """
+        prompt = NormalTUISpoke.prompt(self, args)
+        prompt.set_message(_("Please select language support to install"))
+        # TRANSLATORS: 'b' to go back
+        prompt.add_option(C_("TUI|Spoke Navigation|Language Support", "b"), _("to return to language list"))
+        return prompt
 
     def apply(self):
         """ Store the selected langsupport locales """

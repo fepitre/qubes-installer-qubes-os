@@ -1,6 +1,6 @@
 # Network configuration proxy to NetworkManager
 #
-# Copyright (C) 2013  Red Hat, Inc.
+# Copyright (C) 2013,2017  Red Hat, Inc.
 #
 # This copyrighted material is made available to anyone wishing to use,
 # modify, copy, or redistribute it subject to the terms and conditions of
@@ -20,10 +20,10 @@
 import gi
 gi.require_version("GLib", "2.0")
 gi.require_version("Gio", "2.0")
-gi.require_version("NetworkManager", "1.0")
+gi.require_version("NM", "1.0")
 
 from gi.repository import Gio, GLib
-from gi.repository import NetworkManager
+from gi.repository import NM
 import struct
 import socket
 import logging
@@ -33,13 +33,13 @@ from pyanaconda.constants import DEFAULT_DBUS_TIMEOUT
 from pyanaconda.flags import flags, can_touch_runtime_system
 
 supported_device_types = [
-    NetworkManager.DeviceType.ETHERNET,
-    NetworkManager.DeviceType.WIFI,
-    NetworkManager.DeviceType.INFINIBAND,
-    NetworkManager.DeviceType.BOND,
-    NetworkManager.DeviceType.VLAN,
-    NetworkManager.DeviceType.BRIDGE,
-    NetworkManager.DeviceType.TEAM,
+    NM.DeviceType.ETHERNET,
+    NM.DeviceType.WIFI,
+    NM.DeviceType.INFINIBAND,
+    NM.DeviceType.BOND,
+    NM.DeviceType.VLAN,
+    NM.DeviceType.BRIDGE,
+    NM.DeviceType.TEAM,
 ]
 
 class UnknownDeviceError(ValueError):
@@ -64,6 +64,11 @@ class PropertyNotFoundError(ValueError):
 
 class SettingsNotFoundError(ValueError):
     """Settings NMRemoteConnection object was not found"""
+    def __str__(self):
+        return self.__repr__()
+
+class MultipleSettingsFoundError(ValueError):
+    """Too many NMRemoteConnection objects were found"""
     def __str__(self):
         return self.__repr__()
 
@@ -140,7 +145,7 @@ def nm_state():
 
     # If this is an image/dir install assume the network is up
     if not prop and (flags.imageInstall or flags.dirInstall):
-        return NetworkManager.State.CONNECTED_GLOBAL
+        return NM.State.CONNECTED_GLOBAL
     else:
         return prop
 
@@ -154,9 +159,9 @@ def nm_is_connected():
     :return: True if NM is connected, False otherwise.
     :rtype: bool
     """
-    return nm_state() in (NetworkManager.State.CONNECTED_GLOBAL,
-                          NetworkManager.State.CONNECTED_SITE,
-                          NetworkManager.State.CONNECTED_LOCAL)
+    return nm_state() in (NM.State.CONNECTED_GLOBAL,
+                          NM.State.CONNECTED_SITE,
+                          NM.State.CONNECTED_LOCAL)
 
 def nm_is_connecting():
     """Is NetworkManager connecting?
@@ -164,7 +169,7 @@ def nm_is_connecting():
     :return: True if NM is in CONNECTING state, False otherwise.
     :rtype: bool
     """
-    return nm_state() == NetworkManager.State.CONNECTING
+    return nm_state() == NM.State.CONNECTING
 
 def nm_devices():
     """Return names of network devices supported in installer.
@@ -207,7 +212,7 @@ def nm_activated_devices():
             state = _get_property(ac, "State", ".Connection.Active")
         except UnknownMethodGetError:
             continue
-        if state != NetworkManager.ActiveConnectionState.ACTIVATED:
+        if state != NM.ActiveConnectionState.ACTIVATED:
             continue
         devices = _get_property(ac, "Devices", ".Connection.Active")
         for device in devices:
@@ -286,7 +291,7 @@ def nm_device_type_is_wifi(name):
        :raise UnknownDeviceError: if device is not found
        :raise PropertyNotFoundError: if property is not found
     """
-    return nm_device_type(name) == NetworkManager.DeviceType.WIFI
+    return nm_device_type(name) == NM.DeviceType.WIFI
 
 def nm_device_type_is_ethernet(name):
     """Is the type of device ethernet?
@@ -298,7 +303,7 @@ def nm_device_type_is_ethernet(name):
        :raise UnknownDeviceError: if device is not found
        :raise PropertyNotFoundError: if property is not found
     """
-    return nm_device_type(name) == NetworkManager.DeviceType.ETHERNET
+    return nm_device_type(name) == NM.DeviceType.ETHERNET
 
 def nm_device_type_is_infiniband(name):
     """Is the type of device infiniband?
@@ -307,7 +312,7 @@ def nm_device_type_is_infiniband(name):
        UnknownDeviceError if device is not found
        PropertyNotFoundError if type is not found
     """
-    return nm_device_type(name) == NetworkManager.DeviceType.INFINIBAND
+    return nm_device_type(name) == NM.DeviceType.INFINIBAND
 
 def nm_device_type_is_bond(name):
     """Is the type of device bond?
@@ -319,7 +324,7 @@ def nm_device_type_is_bond(name):
        :raise UnknownDeviceError: if device is not found
        :raise PropertyNotFoundError: if property is not found
     """
-    return nm_device_type(name) == NetworkManager.DeviceType.BOND
+    return nm_device_type(name) == NM.DeviceType.BOND
 
 def nm_device_type_is_team(name):
     """Is the type of device team?
@@ -331,7 +336,7 @@ def nm_device_type_is_team(name):
        :raise UnknownDeviceError: if device is not found
        :raise PropertyNotFoundError: if property is not found
     """
-    return nm_device_type(name) == NetworkManager.DeviceType.TEAM
+    return nm_device_type(name) == NM.DeviceType.TEAM
 
 def nm_device_type_is_bridge(name):
     """Is the type of device bridge?
@@ -343,7 +348,7 @@ def nm_device_type_is_bridge(name):
        :raise UnknownDeviceError: if device is not found
        :raise PropertyNotFoundError: if property is not found
     """
-    return nm_device_type(name) == NetworkManager.DeviceType.BRIDGE
+    return nm_device_type(name) == NM.DeviceType.BRIDGE
 
 def nm_device_type_is_vlan(name):
     """Is the type of device vlan?
@@ -355,7 +360,7 @@ def nm_device_type_is_vlan(name):
        :raise UnknownDeviceError: if device is not found
        :raise PropertyNotFoundError: if property is not found
     """
-    return nm_device_type(name) == NetworkManager.DeviceType.VLAN
+    return nm_device_type(name) == NM.DeviceType.VLAN
 
 def nm_device_is_slave(name):
     """Is the device a slave?
@@ -522,7 +527,7 @@ def nm_device_ip_config(name, version=4):
        :raise PropertyNotFoundError: if ip configuration is not found
     """
     state = nm_device_property(name, "State")
-    if state != NetworkManager.DeviceState.ACTIVATED:
+    if state != NM.DeviceState.ACTIVATED:
         return []
 
     if version == 4:
@@ -657,9 +662,9 @@ def _device_settings(name):
        :raise UnknownDeviceError: if device is not found
     """
     devtype = nm_device_type(name)
-    if devtype == NetworkManager.DeviceType.BOND:
+    if devtype == NM.DeviceType.BOND:
         settings = _find_settings(name, 'bond', 'interface-name')
-    elif devtype == NetworkManager.DeviceType.VLAN:
+    elif devtype == NM.DeviceType.VLAN:
         settings = _find_settings(name, 'vlan', 'interface-name')
         if not settings:
             # connections generated by NM from iBFT
@@ -700,7 +705,7 @@ def _settings_for_hwaddr(hwaddr):
        :rtype: list
     """
     return _find_settings(hwaddr, '802-3-ethernet', 'mac-address',
-            format_value=lambda ba: ":".join("%02X" % b for b in ba))
+                          format_value=lambda ba: ":".join("%02X" % b for b in ba))
 
 def _find_settings(value, key1, key2, format_value=lambda x: x):
     """Return list of object paths of settings having given value of key1, key2 setting
@@ -724,7 +729,11 @@ def _find_settings(value, key1, key2, format_value=lambda x: x):
     connections = proxy.ListConnections()
     for con in connections:
         proxy = _get_proxy(object_path=con, interface_name="org.freedesktop.NetworkManager.Settings.Connection")
-        settings = proxy.GetSettings()
+        try:
+            settings = proxy.GetSettings()
+        except GLib.GError as e:
+            log.debug("Exception raised in _find_settings: %s", e)
+            continue
         try:
             v = settings[key1][key2]
         except KeyError:
@@ -757,7 +766,12 @@ def nm_get_all_settings():
     connections = proxy.ListConnections()
     for con in connections:
         proxy = _get_proxy(object_path=con, interface_name="org.freedesktop.NetworkManager.Settings.Connection")
-        settings = proxy.GetSettings()
+        try:
+            settings = proxy.GetSettings()
+        except GLib.GError as e:
+            # The connection may be deleted asynchronously by NM
+            log.debug("Exception raised in nm_get_all_settings: %s", e)
+            continue
         retval.append(settings)
 
     return retval
@@ -776,16 +790,22 @@ def nm_device_setting_value(name, key1, key2):
                 by NM
        :rtype: unpacked GDBus variant or None
        :raise UnknownDeviceError: if device is not found
-       :raise SettingsNotFoundError: if settings were not found
-                                           (eg for "wlan0")
+       :raise SettingsNotFoundError: if settings were not found (eg for "wlan0")
+       :raise MultipleSettingsFoundError: if multiple settings were found
     """
     settings_paths = _device_settings(name)
     if not settings_paths:
         raise SettingsNotFoundError(name)
+    elif len(settings_paths) > 1:
+        raise MultipleSettingsFoundError(name)
     else:
         settings_path = settings_paths[0]
     proxy = _get_proxy(object_path=settings_path, interface_name="org.freedesktop.NetworkManager.Settings.Connection")
-    settings = proxy.GetSettings()
+    try:
+        settings = proxy.GetSettings()
+    except GLib.GError as e:
+        log.debug("nm_device_setting_value: %s", e)
+        raise SettingsNotFoundError(name)
     try:
         value = settings[key1][key2]
     except KeyError:
@@ -890,6 +910,36 @@ def nm_add_connection(values):
         raise
     return connection
 
+def nm_update_settings(uuid, new_values):
+    """Update settings of connection given by uuid.
+
+       The type of value is determined from existing settings of device.
+       If setting for key1, key2 does not exist, default_type_str is used or
+       if None, the type is inferred from the value supplied (string and bool only).
+
+       :param uuid: uuid of the connection
+       :type name: str
+       :param new_values: list of settings with new values and its types
+                          [[key1, key2, value, default_type_str]]
+                          key1: first-level key of setting (eg "connection")
+                          key2: second-level key of setting (eg "uuid")
+                          value: new value
+                          default_type_str: dbus type of new value to be used
+                                            if the setting does not already exist;
+                                            if None, the type is inferred from
+                                            value (string and bool only)
+       :type new_values: [[key1, key2, value, default_type_str], ...]
+                         key1: str
+                         key2: str
+                         value:
+                         default_type_str: str
+       :raise SettingsNotFoundError: if settings were not found (eg for "wlan0")
+    """
+    settings_paths = _find_settings(uuid, "connection", "uuid")
+    if not settings_paths:
+        raise SettingsNotFoundError(uuid)
+    return _update_settings(settings_paths[0], new_values)
+
 def nm_update_settings_of_device(name, new_values):
     """Update setting of device.
 
@@ -920,10 +970,13 @@ def nm_update_settings_of_device(name, new_values):
        :raise UnknownDeviceError: if device is not found
        :raise SettingsNotFoundError: if settings were not found
                                      (eg for "wlan0")
+       :raise MultipleSettingsFoundError: if multiple settings were found
     """
     settings_paths = _device_settings(name)
     if not settings_paths:
         raise SettingsNotFoundError(name)
+    elif len(settings_paths) > 1:
+        raise MultipleSettingsFoundError(name)
     else:
         settings_path = settings_paths[0]
     return _update_settings(settings_path, new_values)
@@ -1078,9 +1131,9 @@ def test():
         except UnknownDeviceError as e:
             print("     %s" % e)
             devtype = None
-        if devtype == NetworkManager.DeviceType.ETHERNET:
+        if devtype == NM.DeviceType.ETHERNET:
             print("     type %s" % "ETHERNET")
-        elif devtype == NetworkManager.DeviceType.WIFI:
+        elif devtype == NM.DeviceType.WIFI:
             print("     type %s" % "WIFI")
             wireless_device = devname
 

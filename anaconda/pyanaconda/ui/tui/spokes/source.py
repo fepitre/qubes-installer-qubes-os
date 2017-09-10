@@ -23,7 +23,7 @@ from pyanaconda.ui.tui.spokes import EditTUISpoke, NormalTUISpoke
 from pyanaconda.ui.tui.spokes import EditTUISpokeEntry as Entry
 from pyanaconda.ui.tui.simpleline import TextWidget, ColumnWidget
 from pyanaconda.threads import threadMgr, AnacondaThread
-from pyanaconda.packaging import PackagePayload, payloadMgr
+from pyanaconda.payload import PackagePayload, payloadMgr
 from pyanaconda.i18n import N_, _, C_
 from pyanaconda.image import opticalInstallMedia, potentialHdisoSources
 from pyanaconda.iutil import DataHolder
@@ -55,6 +55,7 @@ class SourceSpoke(EditTUISpoke, SourceSwitchHandler):
           :parts: 3
     """
     title = N_("Installation source")
+    helpFile = "SourceSpoke.txt"
     category = SoftwareCategory
 
     _protocols = (N_("Closest mirror"), "http://", "https://", "ftp://", "nfs")
@@ -71,6 +72,7 @@ class SourceSpoke(EditTUISpoke, SourceSwitchHandler):
 
     def initialize(self):
         EditTUISpoke.initialize(self)
+        self.initialize_start()
 
         threadMgr.add(AnacondaThread(name=THREAD_SOURCE_WATCHER,
                                      target=self._initialize))
@@ -89,6 +91,9 @@ class SourceSpoke(EditTUISpoke, SourceSwitchHandler):
             self._cdrom = opticalInstallMedia(self.storage.devicetree)
 
         self._ready = True
+
+        # report that the source spoke has been initialized
+        self.initialize_done()
 
     def _payload_error(self):
         self._error = True
@@ -158,7 +163,7 @@ class SourceSpoke(EditTUISpoke, SourceSwitchHandler):
         choices = [_prep(i, w) for i, w in enumerate(text)]
 
         displayed = ColumnWidget([(78, choices)], 1)
-        self._window.append(displayed)
+        self._window += [displayed, ""]
 
         return True
 
@@ -167,7 +172,7 @@ class SourceSpoke(EditTUISpoke, SourceSwitchHandler):
         try:
             num = int(key)
         except ValueError:
-            return key
+            return super(SourceSpoke, self).input(args, key)
 
         if args == 3:
             # network install
@@ -384,7 +389,7 @@ class SelectDeviceSpoke(NormalTUISpoke):
             choices = [_prep(i, w) for i, w in enumerate(devices)]
 
             displayed = ColumnWidget([(78, choices)], 1)
-            self._window.append(displayed)
+            self._window += [displayed, ""]
 
         else:
             message = _("No mountable devices found")
@@ -407,7 +412,7 @@ class SelectDeviceSpoke(NormalTUISpoke):
         except (IndexError, ValueError):
             # either the input was not a number or
             # we don't have the disk for the given number
-            return key
+            return super(SelectDeviceSpoke, self).input(args, key)
 
     # Override Spoke.apply
     def apply(self):
@@ -442,7 +447,7 @@ class SelectISOSpoke(NormalTUISpoke, SourceSwitchHandler):
             choices = [_prep(i, w) for i, w in enumerate(isos)]
 
             displayed = ColumnWidget([(78, choices)], 1)
-            self._window.append(displayed)
+            self._window += [displayed, ""]
         else:
             message = _("No *.iso files found in device root folder")
             self._window += [TextWidget(message), ""]
@@ -463,7 +468,7 @@ class SelectISOSpoke(NormalTUISpoke, SourceSwitchHandler):
             self.close()
             return True
         except (IndexError, ValueError):
-            return key
+            return super(SelectISOSpoke, self).input(args, key)
 
     @property
     def indirect(self):

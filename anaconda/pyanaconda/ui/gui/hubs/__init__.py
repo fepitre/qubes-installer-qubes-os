@@ -25,9 +25,11 @@ from gi.repository import GLib
 from pyanaconda.flags import flags
 from pyanaconda.i18n import _, C_
 from pyanaconda.product import distributionText
+from pyanaconda import lifecycle
 
 from pyanaconda.ui import common
 from pyanaconda.ui.gui import GUIObject
+from pyanaconda.ui.gui.helpers import autoinstall_stopped
 from pyanaconda.ui.gui.utils import gtk_call_once, escape_markup
 
 import logging
@@ -59,6 +61,7 @@ class Hub(GUIObject, common.Hub):
     """
 
     handles_autostep = True
+    _hubs_collection = []
 
     def __init__(self, data, storage, payload, instclass):
         """Create a new Hub instance.
@@ -74,7 +77,7 @@ class Hub(GUIObject, common.Hub):
            storage      -- An instance of storage.Storage.  This is useful for
                            determining what storage devices are present and how
                            they are configured.
-           payload      -- An instance of a packaging.Payload subclass.  This
+           payload      -- An instance of a payload.Payload subclass.  This
                            is useful for displaying and selecting packages to
                            install, and in carrying out the actual installation.
            instclass    -- An instance of a BaseInstallClass subclass.  This
@@ -89,6 +92,9 @@ class Hub(GUIObject, common.Hub):
         # mode, but if the user interacts with the hub, it will be
         # disabled again
         self._autoContinue = flags.automatedInstall
+
+        self._hubs_collection.append(self)
+        self.timeout_id = None
 
         self._incompleteSpokes = []
         self._inSpoke = False
@@ -194,7 +200,7 @@ class Hub(GUIObject, common.Hub):
 
             col = 0
             for selector in selectors:
-                selector.set_margin_left(12)
+                selector.set_margin_start(12)
                 grid.attach(selector, col, row, 1, 1)
                 col = int(not col)
                 if col == 0:
@@ -205,6 +211,13 @@ class Hub(GUIObject, common.Hub):
             # category's title in the wrong place.
             if len(selectors) % 2:
                 row += 1
+
+        # initialization of all expected spokes has been started, so notify the controller
+        hub_controller = lifecycle.get_controller_by_name(self.__class__.__name__)
+        if hub_controller:
+            hub_controller.all_modules_added()
+        else:
+            log.error("Initialization controller for hub %s expected but missing.", self.__class__.__name__)
 
         spokeArea = self.window.get_spoke_area()
         viewport = Gtk.Viewport()
@@ -315,16 +328,20 @@ class Hub(GUIObject, common.Hub):
                 # hub automatically.  Take into account the possibility the user is
                 # viewing a spoke right now, though.
                 if flags.automatedInstall:
+                    spoke_title = spoke.title.replace("_", "")
                     # Users might find it helpful to know why a kickstart install
                     # went interactive.  Log that here.
-                    if not spoke.completed:
-                        log.info("kickstart installation stopped for info: %s", spoke.title.replace("_", ""))
+                    if not spoke.completed and spoke.mandatory:
+                        autoinstall_stopped("User interaction required on spoke %s" % spoke_title)
+                    else:
+                        log.debug("kickstart installation, spoke %s is ready", spoke_title)
 
                     # Spokes that were not initially ready got the execute call in
                     # _createBox skipped.  Now that it's become ready, do it.  Note
                     # that we also provide a way to skip this processing (see comments
                     # communication.py) to prevent getting caught in a loop.
                     if not args[1] and spoke.changed and spoke.visitedSinceApplied:
+                        log.debug("execute spoke from event loop %s", spoke.title.replace("_", ""))
                         spoke.execute()
                         spoke.visitedSinceApplied = False
 
@@ -352,7 +369,14 @@ class Hub(GUIObject, common.Hub):
         GUIObject.refresh(self)
         self._createBox()
 
-        GLib.timeout_add(100, self._update_spokes)
+        for hub in Hub._hubs_collection:
+            if hub.timeout_id is not None:
+                log.debug("Disabling event loop for hub %s", hub.__class__.__name__)
+                GLib.source_remove(hub.timeout_id)
+                hub.timeout_id = None
+
+        log.debug("Starting event loop for hub %s", self.__class__.__name__)
+        self.timeout_id = GLib.timeout_add(100, self._update_spokes)
 
     ### SIGNAL HANDLERS
 
@@ -383,9 +407,10 @@ class Hub(GUIObject, common.Hub):
 
         # Enter the spoke
         self._inSpoke = True
-        spoke.entry()
         spoke.refresh()
         self.main_window.enterSpoke(spoke)
+        # the new spoke should be now visible, trigger the entered signal
+        spoke.entered.emit(spoke)
 
     def spoke_done(self, spoke):
         # Ignore if not in a spoke
@@ -406,7 +431,7 @@ class Hub(GUIObject, common.Hub):
             spoke.execute()
             spoke.visitedSinceApplied = False
 
-        spoke.exit()
+        spoke.exited.emit(spoke)
 
         self._inSpoke = False
 

@@ -27,7 +27,6 @@ from pyanaconda.ui.communication import hubQ
 from pyanaconda.ui.tui import exception_msg_handler
 from pyanaconda.iutil import execWithRedirect, ipmi_abort
 from pyanaconda.flags import can_touch_runtime_system
-import getpass
 import sys
 
 def exception_msg_handler_and_exit(event, data):
@@ -45,27 +44,18 @@ class AskVNCSpoke(NormalTUISpoke):
     # This spoke is kinda standalone, not meant to be used with a hub
     # We pass in some fake data just to make our parents happy
     def __init__(self, app, data, storage=None, payload=None,
-                 instclass=None, message=None):
+                 instclass=None, message=""):
         NormalTUISpoke.__init__(self, app, data, storage, payload, instclass)
+        self.initialize_start()
 
         # The TUI hasn't been initialized with the message handlers yet. Add an
         # exception message handler so that the TUI exits if anything goes wrong
         # at this stage.
         self._app.register_event_handler(hubQ.HUB_CODE_EXCEPTION, exception_msg_handler_and_exit)
-
-        if message:
-            self._message = message
-        else:
-            self._message = _("X was unable to start on your "
-                              "machine.  Would you like to "
-                              "start VNC to connect to "
-                              "this computer from another "
-                              "computer and perform a "
-                              "graphical installation or continue "
-                              "with a text mode installation?")
-
+        self._message = message
         self._choices = (_(USEVNC), _(USETEXT))
         self._usevnc = False
+        self.initialize_done()
 
     @property
     def indirect(self):
@@ -115,7 +105,7 @@ class AskVNCSpoke(NormalTUISpoke):
                 else:
                     sys.exit(1)
         else:
-            return key
+            return super(AskVNCSpoke, self).input(args, key)
 
     def apply(self):
         self.data.vnc.enabled = self._usevnc
@@ -135,6 +125,7 @@ class VNCPassSpoke(NormalTUISpoke):
         else:
             self._message = _("Please provide VNC password (must be six to eight characters long).\n"
                               "You will have to type it twice. Leave blank for no password")
+        self._app = app
 
     @property
     def indirect(self):
@@ -152,8 +143,8 @@ class VNCPassSpoke(NormalTUISpoke):
 
     def prompt(self, args=None):
         """Override prompt as password typing is special."""
-        p1 = getpass.getpass(_("Password: "))
-        p2 = getpass.getpass(_("Password (confirm): "))
+        p1 = self._app.simpleline_getpass(_("Password: "))
+        p2 = self._app.simpleline_getpass(_("Password (confirm): "))
 
         if p1 != p2:
             print(_("Passwords do not match!"))

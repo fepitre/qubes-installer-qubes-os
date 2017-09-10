@@ -20,6 +20,7 @@
 from pyanaconda.ui.categories.user_settings import UserSettingsCategory
 from pyanaconda.ui.tui.spokes import EditTUISpoke
 from pyanaconda.ui.tui.spokes import EditTUISpokeEntry as Entry
+from pyanaconda.ui.common import FirstbootSpokeMixIn
 from pyanaconda.users import guess_username, check_username
 from pyanaconda.flags import flags
 from pyanaconda.i18n import N_, _
@@ -29,19 +30,22 @@ from pyanaconda.regexes import GECOS_VALID, GROUPLIST_SIMPLE_VALID
 
 __all__ = ["UserSpoke"]
 
-class UserSpoke(EditTUISpoke):
+class UserSpoke(FirstbootSpokeMixIn, EditTUISpoke):
     """
        .. inheritance-diagram:: UserSpoke
           :parts: 3
     """
     title = N_("User creation")
+    helpFile = "UserSpoke.txt"
     category = UserSettingsCategory
 
     edit_fields = [
         Entry("Create user", "_create", EditTUISpoke.CHECK, True),
+        Entry("Fullname", "gecos", GECOS_VALID, lambda self, args: args._create),
         Entry("Username", "name", check_username, lambda self, args: args._create),
         Entry("Use password", "_use_password", EditTUISpoke.CHECK, lambda self, args: args._create),
         Entry("Password", "_password", EditTUISpoke.PASSWORD, lambda self, args: args._use_password and args._create),
+        Entry("Administrator", "_admin", EditTUISpoke.CHECK, lambda self, args: args._create),
         Entry("Groups", "_groups", GROUPLIST_SIMPLE_VALID, lambda self, args: args._create)
         ]
 
@@ -63,8 +67,9 @@ class UserSpoke(EditTUISpoke):
             return False
 
     def __init__(self, app, data, storage, payload, instclass):
+        FirstbootSpokeMixIn.__init__(self)
         EditTUISpoke.__init__(self, app, data, storage, payload, instclass, "user")
-
+        self.initialize_start()
         if self.data.user.userList:
             self.args = self.data.user.userList[0]
             self.args._create = True
@@ -80,7 +85,10 @@ class UserSpoke(EditTUISpoke):
 
         self.errors = []
 
+        self.initialize_done()
+
     def refresh(self, args=None):
+        self.args._admin = "wheel" in self.args.groups
         self.args._groups = ", ".join(self.args.groups)
 
         # if we have any errors, display them
@@ -107,7 +115,10 @@ class UserSpoke(EditTUISpoke):
 
     @property
     def mandatory(self):
-        return True
+        """ Only mandatory if the root pw hasn't been set in the UI
+            eg. not mandatory if the root account was locked in a kickstart
+        """
+        return not self.data.rootpw.password and not self.data.rootpw.lock
 
     @property
     def status(self):
@@ -135,18 +146,25 @@ class UserSpoke(EditTUISpoke):
             elif field.attribute == "_groups":
                 self.dialog.wrong_input_message = _("Either a group name in the group list is invalid or groups are not separated by a comma")
 
-
-        return EditTUISpoke.input(self, args, key)
+        return super(UserSpoke, self).input(args, key)
 
     def apply(self):
+        if self.args.gecos and not self.args.name:
+            username = guess_username(self.args.gecos)
+            valid, msg = check_username(username)
+            if not valid:
+                self.errors.append(_("Invalid user name: %(name)s.\n%(error_message)s")
+                        % {"name": username, "error_message": msg})
+            else:
+                self.args.name = guess_username(self.args.gecos)
+
         self.args.groups = [g.strip() for g in self.args._groups.split(",") if g]
 
-        # Add the user to the wheel and qubes groups
-        if "wheel" not in self.args.groups:
+        # Add or remove the user from wheel group
+        if self.args._admin and "wheel" not in self.args.groups:
             self.args.groups.append("wheel")
-
-        if "qubes" not in self.args.groups:
-            self.args.groups.append("qubes")
+        elif not self.args._admin and "wheel" in self.args.groups:
+            self.args.groups.remove("wheel")
 
         # Add or remove the user from userlist as needed
         if self.args._create and (self.args not in self.data.user.userList and self.args.name):
