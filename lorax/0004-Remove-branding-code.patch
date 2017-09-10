@@ -14,6 +14,7 @@ by package groups, kickstarts and/or whatever. But it does not surprise
 me at all, because this is package is maintained as part of Fedora/RH.
 
 Signed-off-by: Wojtek Porczyk <woju@invisiblethingslab.com>
+Updated-by: Frédéric Pierret (Epitre) <frederic.epitre@orange.fr>
 ---
  src/pylorax/treebuilder.py | 24 ------------------------
  1 file changed, 24 deletions(-)
@@ -54,7 +55,7 @@ index 5d4f8b7..1bf9f22 100644
 -        self._install_branding()
          if len(self._installpkgs) > 0:
              self._runner.installpkg(*self._installpkgs)
-         self._runner.run("runtime-install.tmpl")
+         if len(self._excludepkgs) > 0:
 -- 
 2.5.5
 
