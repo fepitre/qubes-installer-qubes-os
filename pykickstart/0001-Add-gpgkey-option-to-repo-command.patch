@@ -1,0 +1,72 @@
+From df1a4448e7716d271eb7aa7b5ae6279b8e24b761 Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Sun, 10 Sep 2017 16:11:54 +0200
+Subject: [PATCH] Add --gpgkey option to repo command
+
+This will be used to verify packages by pungi, which have no other way to get
+key location (no real .repo files).
+
+Signed-off-by: Frederic Pierret (Epitre) <frederic.epitre@orange.fr>
+---
+ pykickstart/commands/repo.py | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/pykickstart/commands/repo.py b/pykickstart/commands/repo.py
+index 660298f..5143030 100644
+--- a/pykickstart/commands/repo.py
++++ b/pykickstart/commands/repo.py
+@@ -138,6 +138,7 @@ class F21_RepoData(F14_RepoData):
+     def __init__(self, *args, **kwargs):
+         F14_RepoData.__init__(self, *args, **kwargs)
+         self.install = kwargs.get("install", False)
++        self.gpgkey = kwargs.get("gpgkey", None)
+ 
+     def _getArgsAsStr(self):
+         retval = F14_RepoData._getArgsAsStr(self)
+@@ -145,6 +146,9 @@ class F21_RepoData(F14_RepoData):
+         if self.install:
+             retval += " --install"
+ 
++        if self.gpgkey:
++            retval += " --gpgkey=\"%s\"" % self.gpgkey
++
+         return retval
+ 
+ class F27_RepoData(F21_RepoData):
+@@ -154,6 +158,7 @@ class F27_RepoData(F21_RepoData):
+     def __init__(self, *args, **kwargs):
+         F21_RepoData.__init__(self, *args, **kwargs)
+         self.metalink = kwargs.get("metalink", False)
++        self.gpgkey = kwargs.get("gpgkey", None)
+ 
+     def _getArgsAsStr(self):
+         retval = F21_RepoData._getArgsAsStr(self)
+@@ -161,6 +166,9 @@ class F27_RepoData(F21_RepoData):
+         if self.metalink:
+             retval += " --metalink=%s" % self.metalink
+ 
++        if self.gpgkey:
++            retval += " --gpgkey=\"%s\"" % self.gpgkey
++
+         return retval
+ 
+ RHEL7_RepoData = F21_RepoData
+@@ -297,6 +305,7 @@ class F21_Repo(F15_Repo):
+     def _getParser(self):
+         op = F15_Repo._getParser(self)
+         op.add_option("--install", action="store_true", default=False)
++        op.add_option("--gpgkey", action="store", type="string")
+         return op
+ 
+ class F27_Repo(F21_Repo):
+@@ -310,6 +319,7 @@ class F27_Repo(F21_Repo):
+     def _getParser(self):
+         op = F21_Repo._getParser(self)
+         op.add_option("--metalink")
++        op.add_option("--gpgkey", action="store", type="string")
+         return op
+ 
+ RHEL7_Repo = F21_Repo
+-- 
+2.9.5
+
