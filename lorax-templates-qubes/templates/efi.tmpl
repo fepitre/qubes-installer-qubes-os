@@ -42,7 +42,8 @@ install boot/efi/EFI/*/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
     extra_modules += " ib_addr ib_cm ib_core ib_mad ib_sa ib_ucm ib_umad ib_uverbs iw_cm rdma_cm rdma_ucm iw_cxgb3 iw_cxgb4 mlx4_ib ib_mthca iw_nes ib_qib ib_ipoib ib_iser ib_isert ib_srp ib_srpt"
     extra_modules += " cxgb3 cxgb4 mlx4_core mlx4_en"
     extra_dracut_modules  = " multipath modsign crypt shutdown plymouth fcoe fcoe-uefi nfs iscsi ifcfg"
-    extra_dracut_modules += " btrfs lvm qemu qemu-net systemd-bootchart systemd-networkd virtfs mlx4 rdma cifs livenet network kernel-network-modules"
+    extra_dracut_modules += " btrfs lvm qemu qemu-net systemd-bootchart systemd-networkd virtfs mlx4 rdma cifs kernel-network-modules"
+    #~ extra_dracut_modules += " livenet network"
     if disk: args += " --disk"
     if imgtype == "apple": args += ' --apple --icon=%s --diskname=%s --product="%s %s"' % (APPLE_EFI_ICON, APPLE_EFI_DISKNAME, product.name, product.version)
     %>
