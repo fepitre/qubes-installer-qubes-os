@@ -7,7 +7,7 @@
 %endif
 
 Name:           lorax
-Version:        25.19
+Version:        27.9
 Release:        1%{?dist}
 Epoch:          1000
 Summary:        Tool for creating the anaconda install images
@@ -98,7 +98,11 @@ Anaconda's image install feature.
 Summary:  livemedia-creator libvirt dependencies
 Requires: lorax = %{epoch}:%{version}-%{release}
 Requires: qemu
+
+# Fedora edk2 builds currently only support these arches
+%ifarch %{ix86} x86_64 %{arm} aarch64
 Requires: edk2-ovmf
+%endif
 Recommends: qemu-kvm
 
 %description lmc-virt
@@ -162,17 +166,89 @@ make DESTDIR=$RPM_BUILD_ROOT mandir=%{_mandir} install
 
 
 %changelog
-* Wed Feb 22 2017 Brian C. Lane <bcl@redhat.com> 25.19-1
-- Create /dev/random and /dev/urandom before running rpm -qa (#1420523)
-  (bcl@redhat.com)
+* Fri Aug 25 2017 Brian C. Lane <bcl@redhat.com> 27.9-1
+- x86.tmpl: initially define compressargs as empty string (awilliam@redhat.com)
+- x86.tmpl: ensure efiarch64 is defined (awilliam@redhat.com)
 
-* Mon Feb 06 2017 Brian C. Lane <bcl@redhat.com> 25.18-1
+* Thu Aug 24 2017 Brian C. Lane <bcl@redhat.com> 27.8-1
+- Fix grub2-efi-ia32-cdboot and shim-ia32 bits. (pjones@redhat.com)
+
+* Thu Aug 24 2017 Brian C. Lane <bcl@redhat.com> 27.7-1
+- Make 64-bit kernel on 32-bit firmware work for x86 efi machines (pjones@redhat.com)
+- Don't install rdma bits on 32-bit ARM (#1483278) (awilliam@redhat.com)
+
+* Mon Aug 14 2017 Brian C. Lane <bcl@redhat.com> 27.6-1
+- Add creation of a bootable s390 iso (#1478448) (bcl@redhat.com)
+- Add mk-s360-cdboot utility (#1478448) (bcl@redhat.com)
+- Fix systemctl command (#1478247) (bcl@redhat.com)
+- Add version output (#1335456) (bcl@redhat.com)
+- Include the dracut fips module in the initrd (#1341280) (bcl@redhat.com)
+- Make sure loop device is setup (#1462150) (bcl@redhat.com)
+
+* Wed Aug 02 2017 Brian C. Lane <bcl@redhat.com> 27.5-1
+- runtime-cleanup: preserve a couple more gstreamer libs (awilliam@redhat.com)
+- perl is needed on all arches now (dennis@ausil.us)
+
+* Mon Jul 10 2017 Brian C. Lane <bcl@redhat.com> 27.4-1
+- runtime-cleanup.tmpl: don't delete localedef (jlebon@redhat.com)
+
+* Tue Jun 20 2017 Brian C. Lane <bcl@redhat.com> 27.3-1
+- Don't remove libmenu.so library during cleanup on PowerPC (sinny@redhat.com)
+
+* Thu Jun 01 2017 Brian C. Lane <bcl@redhat.com> 27.2-1
+- Remove filegraft from arm.tmpl (#1457906) (bcl@redhat.com)
+- Use anaconda-core to detect buildarch (sgallagh@redhat.com)
+
+* Wed May 31 2017 Brian C. Lane <bcl@redhat.com> 27.1-1
+- arm.tmpl import basename (#1457055) (bcl@redhat.com)
+
+* Tue May 30 2017 Brian C. Lane <bcl@redhat.com> 27.0-1
+- Bump version to 27.0 (bcl@redhat.com)
+- Try all packages when installpkg --optional is used. (bcl@redhat.com)
+- Add support for aarch64 live images (bcl@redhat.com)
+- pylint: Ignore different argument lengths for dnf callback. (bcl@redhat.com)
+- Adds additional callbacks keyword for start() (jmracek@redhat.com)
+- Add ppc64-diag for Power64 platforms (pbrobinson@gmail.com)
+- livemedia-creator: Add release license files to / of the iso (bcl@redhat.com)
+- lorax: Add release license files to / of the iso (bcl@redhat.com)
+- INSTALL_ROOT and LIVE_ROOT are not available during %%post (bcl@redhat.com)
+- Add --noverifyssl to lorax (#1430483) (bcl@redhat.com)
+
+* Mon Mar 06 2017 Brian C. Lane <bcl@redhat.com> 26.7-1
+- add ostree to get installed in anaconda environment (dusty@dustymabe.com)
+- Add dependency for lvmdump -l command (#1255659) (jkonecny@redhat.com)
+
+* Tue Feb 21 2017 Brian C. Lane <bcl@redhat.com> 26.6-1
+- Create /dev/random and /dev/urandom before running rpm -qa (#1420523) (bcl@redhat.com)
+- Fix duplicate kernel messages in /tmp/syslog (#1382611) (rvykydal@redhat.com)
+
+* Mon Feb 06 2017 Brian C. Lane <bcl@redhat.com> 26.5-1
 - Print the full NEVRA when installing packages. (bcl@redhat.com)
-- Only cleanup libhistory from readline (dennis@ausil.us)
 
-* Mon Oct 17 2016 Brian C. Lane <bcl@redhat.com> 25.17-1
+* Fri Jan 13 2017 Brian C. Lane <bcl@redhat.com> 26.4-1
+- Only cleanup libhistory from readline (dennis@ausil.us)
+- Do not install rsh to anaconda chroot (gitDeveloper@bitthinker.com)
+- Fixed NameError on result_dir when calling with --image-only (yturgema@redhat.com)
+
+* Tue Dec 06 2016 Brian C. Lane <bcl@redhat.com> 26.3-1
+- New lorax documentation - 26.2 (bcl@redhat.com)
+- runtime-postinstall: PYTHONDIR is no longer used. (bcl@redhat.com)
+- Only require edk2-ovmf on supported arches. (bcl@redhat.com)
+
+* Tue Nov 22 2016 Brian C. Lane <bcl@redhat.com> 26.2-1
+- add exception for lulzbot-marlin-firmware (pbrobinson@gmail.com)
+- drop kexec arch conditional for aarch64 (pbrobinson@gmail.com)
+- imgutils: Don't relabel /ostree (walters@verbum.org)
+- Added option to remove packages (parallel to installpkgs) (riehecky@fnal.gov)
+- templates: When a subprocess fatally errors, output its stderr directly (walters@verbum.org)
+
+* Mon Oct 17 2016 Brian C. Lane <bcl@redhat.com> 26.1-1
 - Add missing fonts (#1370118) (vponcova@redhat.com)
 - drop ssh server key generation for s390(x) (#1383641) (dan@danny.cz)
+
+* Fri Sep 30 2016 Brian C. Lane <bcl@redhat.com> 26.0-1
+- Bump version to 26.0 (bcl@redhat.com)
+- adapt to DNF 2.0 API changes (i.gnatenko.brain@gmail.com)
 
 * Mon Sep 26 2016 Brian C. Lane <bcl@redhat.com> 25.16-1
 - Fix broken sshd.inst boot option (#1378378) (jjelen@redhat.com)
