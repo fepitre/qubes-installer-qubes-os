@@ -1,0 +1,31 @@
+From d04c73fea6bb408995c4f773389ead4de4937cd5 Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Tue, 19 Sep 2017 18:33:57 +0200
+Subject: [PATCH 18/29] anaconda: drop useless on Qubes dependencies on network
+ filesystems
+
+Installing Qubes on network drive is not supported, so drop those dependencies.
+---
+ pyanaconda/kickstart.py | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/pyanaconda/kickstart.py b/pyanaconda/kickstart.py
+index 61c76e4..4ebdafe 100644
+--- a/pyanaconda/kickstart.py
++++ b/pyanaconda/kickstart.py
+@@ -2306,12 +2306,6 @@ def parseKickstart(f, strict_mode=False):
+ 
+     # We need this so all the /dev/disk/* stuff is set up before parsing.
+     udev.trigger(subsystem="block", action="change")
+-    # So that drives onlined by these can be used in the ks file
+-    blivet.iscsi.iscsi.startup()
+-    blivet.fcoe.fcoe.startup()
+-    blivet.zfcp.zfcp.startup()
+-    # Note we do NOT call dasd.startup() here, that does not online drives, but
+-    # only checks if they need formatting, which requires zerombr to be known
+ 
+     kswarnings = []
+     ksmodule = "pykickstart"
+-- 
+2.9.5
+

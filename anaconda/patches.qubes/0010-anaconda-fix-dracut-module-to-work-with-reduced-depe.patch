@@ -1,0 +1,60 @@
+From 5276f24766ea29fbdb673099de5781bf05fd764a Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Tue, 19 Sep 2017 16:44:01 +0200
+Subject: [PATCH 10/29] anaconda: fix dracut module to work with reduced 
+ dependencies
+
+Do not fail because of not present url-lib. Also 'loop' module requires manual
+loading now.
+---
+ dracut/anaconda-diskroot         | 2 ++
+ dracut/module-setup.sh           | 2 +-
+ dracut/parse-anaconda-options.sh | 6 +++++-
+ 3 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/dracut/anaconda-diskroot b/dracut/anaconda-diskroot
+index 7e52e05..2e5e81b 100755
+--- a/dracut/anaconda-diskroot
++++ b/dracut/anaconda-diskroot
+@@ -63,6 +63,8 @@ if [ -e /tmp/dd_interactive -a ! -e /tmp/dd.done ]; then
+     fi
+ fi
+ 
++modprobe -q loop
++
+ info "anaconda using disk root at $dev"
+ mount $dev $repodir || warn "Couldn't mount $dev"
+ anaconda_live_root_dir $repodir $path
+diff --git a/dracut/module-setup.sh b/dracut/module-setup.sh
+index 1840361..9f4e9d4 100755
+--- a/dracut/module-setup.sh
++++ b/dracut/module-setup.sh
+@@ -7,7 +7,7 @@ check() {
+ }
+ 
+ depends() {
+-    echo livenet nfs img-lib convertfs ifcfg
++    echo img-lib dmsquash-live
+     case "$(uname -m)" in
+         s390*) echo cms ;;
+     esac
+diff --git a/dracut/parse-anaconda-options.sh b/dracut/parse-anaconda-options.sh
+index fa1455f..8fce64a 100755
+--- a/dracut/parse-anaconda-options.sh
++++ b/dracut/parse-anaconda-options.sh
+@@ -2,7 +2,11 @@
+ # parse-anaconda-options.sh - parse installer-specific options
+ 
+ . /lib/anaconda-lib.sh
+-. /lib/url-lib.sh
++if [ -r /lib/url-lib.sh ]; then
++    . /lib/url-lib.sh
++else
++    alias set_http_header=:
++fi
+ 
+ # create the repodir and isodir that anaconda will look for
+ mkdir -p $repodir $isodir
+-- 
+2.9.5
+
