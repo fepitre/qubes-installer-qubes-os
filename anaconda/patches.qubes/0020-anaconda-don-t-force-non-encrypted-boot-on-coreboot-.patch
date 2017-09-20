@@ -1,0 +1,49 @@
+From f4778e4a41cadf63fd5c249f855e899b6e364d5d Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Tue, 19 Sep 2017 19:34:00 +0200
+Subject: [PATCH 20/29] anaconda: don't force non-encrypted /boot on coreboot
+ systems
+
+With grub payload it is possible to have all the partitions encrypted.
+
+Based on patch by @tlaurion
+
+Fixes QubesOS/qubes-issues#2118
+---
+ pyanaconda/bootloader.py | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/pyanaconda/bootloader.py b/pyanaconda/bootloader.py
+index b796b3d..5473860 100644
+--- a/pyanaconda/bootloader.py
++++ b/pyanaconda/bootloader.py
+@@ -43,6 +43,8 @@ from blivet.size import Size
+ from pyanaconda.i18n import _, N_
+ 
+ import logging
++import subprocess
++
+ log = logging.getLogger("anaconda")
+ 
+ class serial_opts(object):
+@@ -1414,12 +1416,11 @@ class GRUB2(GRUB):
+     # XXX we probably need special handling for raid stage1 w/ gpt disklabel
+     #     since it's unlikely there'll be a bios boot partition on each disk
+ 
+-    @property
+-    def stage2_format_types(self):
+-        if productName.startswith("Red Hat "):              # pylint: disable=no-member
+-            return ["xfs", "ext4", "ext3", "ext2", "btrfs"]
+-        else:
+-            return ["ext4", "ext3", "ext2", "btrfs", "xfs"]
++    stage2_format_types = ["ext4", "ext3", "ext2", "btrfs", "xfs"]
++    
++    self.encryption_support = True
++    self.stage2_format_types += ["lvmlv"]
++    self.skip_bootloader = flags.cmdline.getbool("skip_grub", False)
+ 
+     #
+     # grub-related conveniences
+-- 
+2.9.5
+
