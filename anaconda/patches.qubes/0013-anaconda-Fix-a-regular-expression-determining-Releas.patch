@@ -1,0 +1,28 @@
+From 8d296b582cc9548f560fee256eb353caeec4ecb8 Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Tue, 19 Sep 2017 17:04:58 +0200
+Subject: [PATCH 13/30] anaconda: Fix a regular expression determining Release
+
+Without the start-of-line matcher, other lines are matched as well, causing invalid PACKAGE_RELEASE variable substitutions within the Makefiles.
+---
+ configure.ac | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index 7f4ffa4..fb6f915 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -101,7 +101,9 @@ SHUT_UP_GCC="-Wno-unused-result"
+ # Add remaining compiler flags we want to use
+ CFLAGS="$CFLAGS -Wall -Werror $SHUT_UP_GCC"
+ 
+-AC_SUBST(PACKAGE_RELEASE, [1])
++# Get the release number from the spec file
++rel="`awk '/^Release:/ { split($2, r, "%"); print r[[1]] }' $srcdir/anaconda.spec`"
++AC_SUBST(PACKAGE_RELEASE, [$rel])
+ 
+ # Perform arch related tests
+ AC_CANONICAL_BUILD
+-- 
+2.9.5
+
