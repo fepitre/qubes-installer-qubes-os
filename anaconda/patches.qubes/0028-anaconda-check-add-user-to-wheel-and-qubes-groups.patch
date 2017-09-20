@@ -1,0 +1,28 @@
+From b66ba31a072547f1b4ce7dd46b651fd8e10f89b5 Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Fri, 22 Sep 2017 16:30:46 +0200
+Subject: [PATCH 28/31] anaconda: check/add user to 'wheel' and 'qubes' groups
+
+---
+ pyanaconda/ui/gui/spokes/user.py | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/pyanaconda/ui/gui/spokes/user.py b/pyanaconda/ui/gui/spokes/user.py
+index 18aa478..745065d 100644
+--- a/pyanaconda/ui/gui/spokes/user.py
++++ b/pyanaconda/ui/gui/spokes/user.py
+@@ -383,6 +383,11 @@ class UserSpoke(FirstbootSpokeMixIn, NormalSpoke, GUISpokeInputCheckHandler):
+ 
+         self._user.name = self.username.get_text()
+ 
++        if "wheel" not in self._user.groups:
++            self._user.groups.append("wheel")
++        if "qubes" not in self._user.groups:
++            self._user.groups.append("qubes")
++
+         # Copy the spoke data back to kickstart
+         # If the user name is not set, no user will be created.
+         if self._user.name:
+-- 
+2.9.5
+

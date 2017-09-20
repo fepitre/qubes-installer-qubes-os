@@ -1,0 +1,55 @@
+From 4476770867b6ce7633ac6d0b4a565de2094de436 Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Tue, 19 Sep 2017 16:47:51 +0200
+Subject: [PATCH 09/31] anaconda: use installer kernel parameters as default
+ for installed system
+
+This way if any kernel parameter was need to boot Qubes on particular hardware, it will also be set to installed system
+
+Fixes QubesOS/qubes-issues#1650
+---
+ pyanaconda/bootloader.py | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/pyanaconda/bootloader.py b/pyanaconda/bootloader.py
+index 4087676..b796b3d 100644
+--- a/pyanaconda/bootloader.py
++++ b/pyanaconda/bootloader.py
+@@ -228,14 +228,13 @@ class BootLoader(object):
+     def stage2_format_types(self):
+         return ["ext4", "ext3", "ext2"]
+ 
+-    # this is so stupid...
+-    global_preserve_args = ["speakup_synth", "apic", "noapic", "apm", "ide",
+-                            "noht", "acpi", "video", "pci", "nodmraid",
+-                            "nompath", "nomodeset", "noiswmd", "fips",
+-                            "selinux", "biosdevname", "ipv6.disable",
+-                            "net.ifnames"]
+     preserve_args = []
+ 
++    global_no_preserve_args = ["stage2", "root", "rescue",
++                               "rd.live.check", "ip", "repo", "ks",
++                               "rd.lvm", "rd.md", "rd.luks", "rd.dm",
++                               "rd.lvm.lv"]
++
+     _trusted_boot = False
+ 
+     def __init__(self):
+@@ -870,11 +869,10 @@ class BootLoader(object):
+             self.boot_args.add("iscsi_firmware")
+ 
+         #
+-        # preservation of some of our boot args
+-        # FIXME: this is stupid.
++        # preservation of most of our boot args
+         #
+-        for opt in self.global_preserve_args + self.preserve_args:
+-            if opt not in flags.cmdline:
++        for opt in flags.cmdline.keys():
++            if opt in self.global_no_preserve_args:
+                 continue
+ 
+             arg = flags.cmdline.get(opt)
+-- 
+2.9.5
+
