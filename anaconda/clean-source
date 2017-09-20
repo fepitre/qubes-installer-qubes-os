@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# Given a clean.conf file and a source directory and remove files listed
+# in the clean.conf from the current directory.
+
+USAGE="$0 <clean.conf>"
+
+set -e
+set -o pipefail
+if test $# -lt 1; then
+	echo "$USAGE" >&2
+	exit 1
+fi
+DIR="${0%/*}"
+CLEAN_CONF=$1
+shift 1
+
+(
+	echo "set -ex"
+	egrep -v '^\s*#|^\s*$' <"$CLEAN_CONF" | \
+	sed "s|^|rm -f /|"
+) | sh
+
