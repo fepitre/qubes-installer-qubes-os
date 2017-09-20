@@ -1,0 +1,58 @@
+From 231eed1c916692fe7064970d66d94e60cd72cbda Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Tue, 19 Sep 2017 14:27:47 +0200
+Subject: [PATCH 03/29] anaconda: do not start network during install, set
+ default hostname and write minimal network configuration
+
+---
+ pyanaconda/network.py | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/pyanaconda/network.py b/pyanaconda/network.py
+index c3f0dd1..afe3346 100644
+--- a/pyanaconda/network.py
++++ b/pyanaconda/network.py
+@@ -54,7 +54,7 @@ networkConfFile = "%s/network" % (sysconfigDir)
+ hostnameFile = "/etc/hostname"
+ ipv6ConfFile = "/etc/sysctl.d/anaconda.conf"
+ ifcfgLogFile = "/tmp/ifcfg.log"
+-DEFAULT_HOSTNAME = "localhost.localdomain"
++DEFAULT_HOSTNAME = "dom0"
+ 
+ ifcfglog = None
+ 
+@@ -1337,24 +1337,26 @@ def write_sysconfig_network(rootpath, overwrite=False):
+ 
+     with open(cfgfile, "w") as f:
+         f.write("# Created by anaconda\n")
++        f.write("NETWORKING=no\n")
+     return True
+ 
+ def write_network_config(storage, ksdata, instClass, rootpath):
+     # overwrite previous settings for LiveCD or liveimg installations
+     overwrite = flags.livecdInstall or ksdata.method.method == "liveimg"
+ 
+-    write_hostname(rootpath, ksdata, overwrite=overwrite)
++    write_hostname(rootpath, ksdata, overwrite=flags.livecdInstall)
+     if ksdata.network.hostname != DEFAULT_HOSTNAME:
+         set_hostname(ksdata.network.hostname)
+-    write_sysconfig_network(rootpath, overwrite=overwrite)
++    write_sysconfig_network(rootpath, overwrite=flags.livecdInstall)
+     disable_ipv6_on_target_system(rootpath)
+     copyIfcfgFiles(rootpath)
+     copyDhclientConfFiles(rootpath)
+     copyFileToPath("/etc/resolv.conf", rootpath, overwrite=overwrite)
+-    instClass.setNetworkOnbootDefault(ksdata)
+-    autostartFCoEDevices(rootpath, storage, ksdata)
+ 
+-def update_hostname_data(ksdata, hostname):
++def update_hostname_data(ksdata, hostname=None):
++    if not hostname:
++    # Default to 'dom0' in Qubes
++        hostname = 'dom0'
+     log.debug("updating host name %s", hostname)
+     hostname_found = False
+     for nd in ksdata.network.network:
+-- 
+2.9.5
+
