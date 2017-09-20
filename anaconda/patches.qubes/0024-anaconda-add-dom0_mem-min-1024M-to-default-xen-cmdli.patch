@@ -1,0 +1,28 @@
+From b90d02b3061e3958f448338358e8b5615ae91faa Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Tue, 19 Sep 2017 20:13:09 +0200
+Subject: [PATCH 24/30] anaconda: add dom0_mem=min:1024M to default xen cmdline
+
+This will solve #959 for new installations.
+
+Related to qubesos/qubes-issues#959
+---
+ pyanaconda/bootloader.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/pyanaconda/bootloader.py b/pyanaconda/bootloader.py
+index 5595c1f..55d25a0 100644
+--- a/pyanaconda/bootloader.py
++++ b/pyanaconda/bootloader.py
+@@ -1501,7 +1501,7 @@ class GRUB2(GRUB):
+         # boot arguments
+         log.info("bootloader.py: used boot args: %s ", self.boot_args)
+         defaults.write("GRUB_CMDLINE_LINUX=\"%s\"\n" % self.boot_args)
+-        defaults.write("GRUB_CMDLINE_XEN_DEFAULT=\"console=none\"\n")
++        defaults.write("GRUB_CMDLINE_XEN_DEFAULT=\"console=none dom0_mem=min:1024M\"\n")
+         defaults.write("GRUB_DISABLE_RECOVERY=\"true\"\n")
+         defaults.write("GRUB_THEME=\"/boot/grub2/themes/system/theme.txt\"\n")
+         defaults.close()
+-- 
+2.9.5
+
