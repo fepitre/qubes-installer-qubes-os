@@ -1,0 +1,27 @@
+From c8bef520e518c506bb91db150fd35bdbf40ebd77 Mon Sep 17 00:00:00 2001
+From: "Frederic Pierret (Epitre)" <frederic.epitre@orange.fr>
+Date: Thu, 21 Sep 2017 15:27:26 +0200
+Subject: [PATCH 1/1] Revert "Adapt to logging module name change"
+
+This reverts the rename of pyanaconda_log to pyanaconda_logging for
+Fedora 26.
+---
+ blivet/__init__.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/blivet/__init__.py b/blivet/__init__.py
+index 1325e54..6d3046a 100644
+--- a/blivet/__init__.py
++++ b/blivet/__init__.py
+@@ -124,7 +124,7 @@ def enable_installer_mode():
+         from pyanaconda.constants import ROOT_PATH  # pylint: disable=redefined-outer-name,no-name-in-module
+         _storage_root = _sysroot = ROOT_PATH
+ 
+-    from pyanaconda.anaconda_logging import program_log_lock
++    from pyanaconda.anaconda_log import program_log_lock
+     util.program_log_lock = program_log_lock
+ 
+     flags.installer_mode = True
+-- 
+2.9.5
+
