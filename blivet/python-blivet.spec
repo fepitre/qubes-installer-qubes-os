@@ -4,43 +4,32 @@
 
 Summary:  A python module for system storage configuration
 Name: python-blivet
-Url: http://fedoraproject.org/wiki/blivet
-Version: 2.1.6
+Url: https://www-rhstorage.rhcloud.com/projects/blivet
+Version: 2.1.11
 
 #%%global prerelease .b1
 # prerelease, if defined, should be something like .a1, .b1, .b2.dev1, or .c2
-Release: 4%{?prerelease}%{?dist}
+Release: 2%{?prerelease}%{?dist}
 Epoch: 2
 License: LGPLv2+
 Group: System Environment/Libraries
 %global realname blivet
 %global realversion %{version}%{?prerelease}
-Source0: http://github.com/rhinstaller/blivet/archive/%{realname}-%{realversion}.tar.gz
-
-Patch0: 0001-Use-correct-type-for-port-in-GVariant-tuple.patch
-Patch1: 0002-iSCSI-Store-auth-info-in-NodeInfo-tuples.patch
-Patch2: 0003-iSCSI-turn-iscsi.initiator_set-into-a-property.patch
-Patch3: 0004-Add-device-symlinks-to-the-PVs-dictionary-for-MD-RAI.patch
-Patch4: 0001-Fix-detection-of-macefi-partitions-1393846.patch
-Patch5: 0001-Fix-unknown-SAS-device-sysfs-parsing.patch
-Patch6: 0001-Change-how-we-run-e2fsck-to-check-ext-filesystems.patch
-Patch7: 0002-Do-not-run-FS-check-as-part-of-updating-re-size-info.patch
+Source0: http://github.com/storaged-project/blivet/archive/%{realname}-%{realversion}.tar.gz
+Patch1:	 0001-Revert-Adapt-to-logging-module-name-change.patch
 
 # Versions of required components (done so we make sure the buildrequires
 # match the requires versions of things).
 %global pykickstartver 1.99.22
-%global pocketlintver 0.4
 %global partedver 1.8.1
 %global pypartedver 3.10.4
-%global e2fsver 1.41.0
 %global utillinuxver 2.15.1
-%global libblockdevver 1.9
+%global libblockdevver 2.6
 %global libbytesizever 0.3
 %global pyudevver 0.18
 
 BuildArch: noarch
 BuildRequires: gettext
-BuildRequires: python3-pocketlint >= %{pocketlintver}
 BuildRequires: python3-devel python3-setuptools
 
 %description
@@ -60,11 +49,9 @@ Requires: python3-blockdev >= %{libblockdevver}
 Requires: libblockdev-plugins-all >= %{libblockdevver}
 Requires: python3-bytesize >= %{libbytesizever}
 Requires: util-linux >= %{utillinuxver}
-Requires: dosfstools
-Requires: e2fsprogs >= %{e2fsver}
 Requires: lsof
-Requires: python3-hawkey
 Requires: python3-gobject-base
+Requires: systemd-udev
 Obsoletes: blivet-data < 1:2.0.3
 Obsoletes: python-blivet < 1:2.0.3
 
@@ -74,14 +61,8 @@ configuration.
 
 %prep
 %setup -q -n %{realname}-%{realversion}
-%patch0 -p1
+
 %patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
 
 rm -rf %{py3dir}
 cp -a . %{py3dir}
@@ -101,18 +82,139 @@ make PYTHON=%{__python3} DESTDIR=%{buildroot} install
 %{python3_sitelib}/*
 
 %changelog
-* Tue Nov 15 2016 David Lehman <dlehman@redhat.com> - 2.1.6-4
-- Fix detection of 'macefi' partitions (#1393846) (awilliam)
+* Tue Sep 19 2017 Vojtech Trefny <vtrefny@redhat.com> - 2.1.11-1
+- Remove build requires for pocketlint (rkuska)
+- edd_test: don't run on non-x86 (pjones)
+- Added support for device tags (japokorn)
+- fcoe: don't use dcb for autoconnecting of bnx2x and bnx2fc (#1261703)
+  (rvykydal)
+- fcoe: replace fipvlan with fcoemon (#1085325) (rvykydal)
+- Do not use read-only mode for e2fsck (vpodzime)
+- Fixed behavior when selinux is disabled (japokorn)
+- Do file system check before resize (#1484575) (vpodzime)
+
+* Thu Aug 17 2017 Vojtech Trefny <vtrefny@redhat.com> - 2.1.10-1
+- Use addCleanup for test cleanup instead of clening in tearDown (vtrefny)
+- No longer skip test w/o selinux; mocked (japokorn)
+- Skip tests when SELinux is disabled (japokorn)
+- New test for selinux context setting when mounting (japokorn)
+- Add tests for disklabel type selection and partition weight. (dlehman)
+- Do not use package version to check version of installed tools (vtrefny)
+- Update the upstream git URL (vpodzime)
+- Stop enforcing obsolete limits on partition count. (#1460668) (dlehman)
+- Do not run FS check as part of updating (re)size info (vpodzime)
+- Change how we run e2fsck to check ext filesystems (vpodzime)
+- Round the recommended thpool metadata size to extents (vpodzime)
+- Respect thin pool's min size when setting its req_size (vpodzime)
+- Don't crash during populate when lvm plugin is missing. (dlehman)
+- Actually add space for LUKS metadata when encrypting a VG (vpodzime)
+- Only consider old and new device sizes when not growing to max (vpodzime)
+- Do not reserve space for LVM metadata twice (vpodzime)
+- Do not create a temporary list for sum() (vpodzime)
+- Refer to self.container as self.vg in the LVMFactory (vpodzime)
+- Add a couple of extra comments and docstrings to factories (vpodzime)
+- Use existing VG's PE size if available in LVMFactory (vpodzime)
+- Add comments warning before a weird nomenclature in factories (vpodzime)
+- Don't let device state block modification of the model. (dlehman)
+- Fix error message for format create w/ missing external dep. (dlehman)
+- Expand coverage of devices_test.dependencies_test a bit. (dlehman)
+- Account for external dep availabilty in StorageDevice.controllable. (dlehman)
+- Add the appropriate external dependency to LUKSDevice. (dlehman)
+
+* Thu Jun 01 2017 Vojtech Trefny <vtrefny@redhat.com> - 2.1.9-1
+- Adapt to logging module name change (mkolman)
+- Updated calls to avoid log spamming (japokorn)
+- Add a script for generating and pushing updated documentation (vtrefny)
+- pylint: ignore some false positive warnings in blivet.py and lvm.py (vtrefny)
+- pylint: remove unused false positives from pocketlint config (vtrefny)
+- pylint: disable false positive "not-context-manager" for threading.Lock
+  (vtrefny)
+- pylint: ignore "arguments-differ" warnings in blivet.size.Size (vtrefny)
+- pylint: fix various "arguments-differ" warnings (vtrefny)
+- pylint: remove init from platform.X86 (vtrefny)
+- pylint: fix various errors in tests (vtrefny)
+- pylint: ignore "arguments-differ" warning for "do_tasks" method (vtrefny)
+- pylint: fix false positive for "catching-non-exception" (vtrefny)
+- pylint: fix argument name for Device._remove_parent/_add_parent (vtrefny)
+- Always mount & unmount an XFS file system when writing new UUID (vpodzime)
+- Do not remove manually created extended partitions (#1440150) (vtrefny)
+- Look the disk up for a partition by name not sys_name (vpodzime)
+- Disable pylint "no-member" warnings for re module constants (vtrefny)
+- Allow custom chunk size specification for MDRaidArrayDevice (vtrefny)
+- Add RAID chunk size to the generated kickstart file (vtrefny)
+- Use structured logging for the anaconda logger (mkolman)
+- Use distutils.spawn.find_executable instead of our custom code (vpodzime)
+- Add a method to reset file system's UUID (vpodzime)
+- Try to mount and unmount an XFS FS when writing UUID (vpodzime)
+- Add a method for a file system to generate a new UUID (vpodzime)
+- tests/fsuuid: Implement checking invalid UUIDs (aszlig)
+- formats/swap: Support setting UUID (aszlig)
+- tests: Add a series of tests for setting UUIDs (aszlig)
+- tests: Add tests to check the UUID format checkers (aszlig)
+- tasks: Implement setting UUID after FS creation (aszlig)
+- formats/fs: Implement setting UUID during mkfs (aszlig)
+- formats/fs: Add functionality for checking UUIDs (aszlig)
+- tasks/fsmkfs: Add arguments for setting UUID (aszlig)
+- Properly unset mountpoint of a snapshot's format (vpodzime)
+- Update snapshot's format's exists flag based on its origin (vpodzime)
+
+* Wed Apr 19 2017 Vojtech Trefny <vtrefny@redhat.com> - 2.1.8-1
+- Fix "unknown" SAS device sysfs parsing. (adamw)
+- Reserve space in a VG when using LVMThinPFactory (vpodzime)
+- Reserve space in a VG instead of padding thin pools on autopart (vpodzime)
+- Focus the nonzero disk image size test a bit. (dlehman)
+- Add missing tearDown method to luks resize test case. (dlehman)
+- Fix some flag stomping in tests. (dlehman)
+- Remove the useless method requiredDiskLabelType (vponcova)
+- FBA DASD should use the msdos disk label type (vponcova)
+- Be more careful when checking for udisks-iscsi availability (vpodzime)
+- Do not allow resize of devices with no/unrecoginized formatting. (#1033778)
+  (dlehman)
+- Clean up parent/child relations on partition ctor error. (#1383873) (dlehman)
+- Use all ancestors when adding RAID disks to exclusiveDisks (vtrefny)
+- Fix detection of linear MD RAID (vtrefny)
+- Add 'discard' option to crypttab for newly created LUKS (vpodzime)
+- Loop devices w/o backing file are now ignored (japokorn)
+- Set parted boot flag when creating EFI filesystem (vtrefny)
+- formats/fs: Set NTFS to be formattable (aszlig)
+- Do not try to search for 'tmpfs' devices in udev database (vtrefny)
+- Fix resize test in fstesting (vtrefny)
+- Fix task availability test (vtrefny)
+- Shallow copy another alignment property (#1408282) (awilliam)
+- Fix the test dependencies (vpodzime)
+- Add 'systemd-udev' to dependencies (#1392591) (vtrefny)
+
+* Sat Feb 11 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1:2.1.7-7
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
+
+* Sat Dec 24 2016 Adam Williamson <awilliam@redhat.com> - 1:2.1.7-6
+- Actually apply the patch mentioned in -5
+
+* Fri Dec 23 2016 Adam Williamson <awilliam@redhat.com> - 1:2.1.7-5
+- backport GH#530 to fix #1408282 (crash with Python 3.6)
+
+* Mon Dec 19 2016 Miro Hrončok <mhroncok@redhat.com> - 1:2.1.7-4
+- Rebuild for Python 3.6
+
+* Tue Dec  6 2016 Vratislav Podzimek <vpodzime@redhat.com> - 2.1.7-3
+- Add 'systemd-udev' to dependencies (#1392591) (vtrefny)
+
+* Mon Nov 21 2016 Vratislav Podzimek <vpodzime@redhat.com> - 2.1.7-2
 - Fix "unknown" SAS device sysfs parsing. (#1394026) (awilliam)
 
-* Mon Nov 07 2016 David Lehman <dlehman@redhat.com> - 2.1.6-3
-- Never update POT file as part of rpm build.
-
-* Mon Nov 07 2016 David Lehman <dlehman@redhat.com> - 2.1.6-2
-- Use correct type for port in GVariant tuple (awilliam)
-- iSCSI: Store auth info in NodeInfo tuples (awilliam)
+* Mon Nov 21 2016 Vratislav Podzimek <vpodzime@redhat.com> - 2.1.7-1
+- Require BlockDev 2.0 in the gi.require_version() call (vpodzime)
+- Fix detection of 'macefi' partitions (#1393846) (awilliam)
+- Add device symlinks to the PVs dictionary for MD RAID PVs (#1389130)
+  (vpodzime)
 - iSCSI: turn `iscsi.initiator_set` into a property (awilliam)
-- Add device symlinks to the PVs dictionary for MD RAID PVs (#1389130) (vpodzime)
+- iSCSI: Store auth info in NodeInfo tuples (awilliam)
+- Use correct type for port in GVariant tuple (awilliam)
+- Use a list comprehension for _to_node_infos (awilliam)
+- Device name now checked only for new devices (japokorn)
+- Remove several redundant teardown calls. (dlehman)
+- Cache and reuse data about multipath members (vpodzime)
+- Remove some obsolete pvscan calls. (dlehman)
 
 * Tue Oct 04 2016 David Lehman <dlehman@redhat.com> - 2.1.6-1
 - add missing populators to populator.helpers (awilliam)
