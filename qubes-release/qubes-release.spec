@@ -1,4 +1,4 @@
-%define dist_version 3.2
+%define dist_version 3.3
 %define release_name R%{dist_version}
 %define fedora_base_version %{fedora}
 
@@ -19,7 +19,7 @@ Obsoletes:	redhat-release
 Provides:	fedora-release = %{fedora_base_version}-%{release}
 Provides:	redhat-release = %{fedora_base_version}-%{release}
 Provides:	system-release = %{fedora_base_version}-%{release}
-Obsoletes:	qubes-dom0-dist-upgrade <= 3.2
+Obsoletes:	qubes-dom0-dist-upgrade <= 3.3
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:	noarch
 
