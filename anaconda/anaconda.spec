@@ -16,8 +16,6 @@ URL:     http://fedoraproject.org/wiki/Anaconda
 # make dist
 Source0: %{name}-%{version}.tar.bz2
 
-%define _sourcedir %(pwd)/anaconda
-
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 # Versions of required components (done so we make sure the buildrequires

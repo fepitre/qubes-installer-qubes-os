@@ -1,7 +1,6 @@
 %define dist_version 4.0
 %define release_name R%{dist_version}
 %define fedora_base_version %{fedora}
-%define _sourcedir %(pwd)/qubes-release
 
 Summary:	Qubes release files
 Name:		qubes-release

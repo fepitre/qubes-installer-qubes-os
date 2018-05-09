@@ -1,5 +1,3 @@
-%define _sourcedir %(pwd)/qubes-anaconda-addon
-
 Name:           qubes-anaconda-addon
 Version:        4.0.6
 Release:        1%{?dist}

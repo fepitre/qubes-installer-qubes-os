@@ -1,5 +1,3 @@
-%define _sourcedir %(pwd)/lorax-templates-qubes
-
 Name:		lorax-templates-qubes
 Version:	4.0.2
 Release:	1%{?dist}

@@ -2,8 +2,6 @@
 # NOTE: Please submit changes as a pull request
 %define debug_package %{nil}
 
-%define _sourcedir %(pwd)/lorax
-
 Name:           lorax
 Version:        25.19
 Release:        1%{?dist}

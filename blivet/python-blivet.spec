@@ -1,5 +1,3 @@
-%define _sourcedir %(pwd)/blivet
-
 Summary:  A python module for system storage configuration
 Name: python-blivet
 Url: http://fedoraproject.org/wiki/blivet
