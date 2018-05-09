@@ -1,6 +1,4 @@
-%if 0%{?qubes_builder}
-%define _builddir %(pwd)/qubes-anaconda-addon
-%endif
+%define _sourcedir %(pwd)/qubes-anaconda-addon
 
 Name:           qubes-anaconda-addon
 Version:        4.0.6

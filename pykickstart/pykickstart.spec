@@ -1,8 +1,6 @@
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
-%if 0%{?qubes_builder}
 %define _sourcedir %(pwd)/pykickstart
-%endif
 
 Name:      pykickstart
 Version:   2.32

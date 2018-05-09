@@ -16,9 +16,7 @@ URL:     http://fedoraproject.org/wiki/Anaconda
 # make dist
 Source0: %{name}-%{version}.tar.bz2
 
-%if 0%{?qubes_builder}
-%define _builddir %(pwd)/anaconda
-%endif
+%define _sourcedir %(pwd)/anaconda
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 

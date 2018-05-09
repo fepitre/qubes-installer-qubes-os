@@ -1,8 +1,5 @@
 %define fedora_base_version %{fedora}
-
-%if 0%{?qubes_builder}
-%define _builddir %(pwd)/qubes-release
-%endif
+%define _sourcedir %(pwd)/qubes-release
 
 Summary:	Qubes dom0 dist upgrade
 Name:		qubes-dom0-dist-upgrade

@@ -1,6 +1,4 @@
-%if 0%{?qubes_builder}
-%define _builddir %(pwd)/lorax-templates-qubes
-%endif
+%define _sourcedir %(pwd)/lorax-templates-qubes
 
 Name:		lorax-templates-qubes
 Version:	4.0.2
