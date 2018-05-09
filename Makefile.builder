@@ -26,4 +26,6 @@ $(RPM_SPEC_FILES.dom0):
 
 NO_ARCHIVE = 1
 
+dist-package-build: PKG_SOURCE_DIR=$(dir $(CHROOT_DIR)/$(DIST_SRC)/$(PACKAGE))
+
 # vim: ft=make
