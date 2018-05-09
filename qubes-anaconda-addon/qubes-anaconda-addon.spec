@@ -17,6 +17,8 @@ Requires:       qubes-mgmt-salt-dom0-virtual-machines >= 4.0.11
 
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
+Source0: %{name}-%{version}.tar.gz
+
 %description
 This is an addon that makes available Qubes OS specific setup functionality
 at first boot time.

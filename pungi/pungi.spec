@@ -11,7 +11,7 @@ Summary:        Distribution compose tool
 Group:          Development/Tools
 License:        GPLv2
 URL:            https://pagure.io/pungi
-Source0:        https://pagure.io/releases/%{name}/%{name}-%{version}.tar.bz2
+Source0:        %{name}-%{version}.tar.bz2
 Patch1:         0001-Set-repository-gpgkey-option.patch
 Patch2:         0002-Verify-downloaded-packages.patch
 Patch3:         disable-efi.patch

@@ -10,7 +10,7 @@ Version:	2.0
 Release:	2
 License:	GPLv2
 Group:		System Environment/Base
-Source:		%{name}-%{version}.tar.bz2
+Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:	noarch
 
