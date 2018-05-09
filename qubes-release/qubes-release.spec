@@ -39,11 +39,7 @@ Qubes release notes package.
 
 
 %prep
-%if ! 0%{?qubes_builder}
 %setup -q
-%endif
-
-%build
 
 %install
 rm -rf $RPM_BUILD_ROOT

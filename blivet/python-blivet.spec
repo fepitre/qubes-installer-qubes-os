@@ -15,7 +15,7 @@ License: LGPLv2+
 Group: System Environment/Libraries
 %global realname blivet
 %global realversion %{version}%{?prerelease}
-Source0: http://github.com/rhinstaller/blivet/archive/%{realname}-%{realversion}.tar.gz
+Source0: %{realname}-%{realversion}.tar.gz
 
 Patch0: 0001-Use-correct-type-for-port-in-GVariant-tuple.patch
 Patch1: 0002-iSCSI-Store-auth-info-in-NodeInfo-tuples.patch
