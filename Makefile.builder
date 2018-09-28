@@ -9,6 +9,8 @@ RPM_SPEC_FILES.dom0 := \
     qubes-release/qubes-release.spec \
     qubes-release/qubes-dom0-dist-upgrade.spec
 
+RPM_SPEC_FILES.dom0 = blivet/python-blivet.spec
+
 ifeq ($(ISO_LIVEUSB),1)
 RPM_SPEC_FILES.dom0 += \
     livecd-tools/livecd-tools.spec \
