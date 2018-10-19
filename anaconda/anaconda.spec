@@ -284,10 +284,9 @@ options. This includes driver disks, kickstarts, and finding the anaconda
 runtime on NFS/HTTP/FTP servers or local disks.
 
 %prep
-%autosetup -q
+%autosetup -p1
 
 %build
-./autogen.sh
 %configure
 %{__make} %{?_smp_mflags}
 
