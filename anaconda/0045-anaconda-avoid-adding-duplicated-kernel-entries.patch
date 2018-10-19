@@ -1,0 +1,32 @@
+From 72ecadd2b186caf594b828cbecf7784b38a05d2d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.epitre@orange.fr>
+Date: Fri, 19 Oct 2018 08:02:13 +0200
+Subject: [PATCH] anaconda: avoid adding duplicated kernel entries
+
+List kernel versions without duplicates, even when there are multiple
+files related to the same kernel version.
+Duplicated kernel versions here caused regenerating initramfs multiple
+times and duplicated entries in xen.cfg.
+
+QubesOS/qubes-issues#3624
+---
+ pyanaconda/packaging/__init__.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/pyanaconda/packaging/__init__.py b/pyanaconda/packaging/__init__.py
+index 8332ce0e5..26eb953d4 100644
+--- a/pyanaconda/packaging/__init__.py
++++ b/pyanaconda/packaging/__init__.py
+@@ -829,7 +829,7 @@ class PackagePayload(Payload):
+                 if fnmatch(f, "/boot/vmlinuz-*") or
+                    fnmatch(f, "/boot/efi/EFI/%s/vmlinuz-*" % self.instclass.efi_dir)))
+ 
+-        return sorted(files, key=functools.cmp_to_key(versionCmp))
++        return sorted(set(files), key=functools.cmp_to_key(versionCmp))
+ 
+     @property
+     def rpmMacros(self):
+-- 
+2.17.1
+

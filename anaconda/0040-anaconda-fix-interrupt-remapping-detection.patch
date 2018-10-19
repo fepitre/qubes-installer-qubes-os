@@ -1,0 +1,26 @@
+From 15299b6a27dc20ef73e3b0d649aa79667776c2e5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.epitre@orange.fr>
+Date: Fri, 19 Oct 2018 08:02:13 +0200
+Subject: [PATCH] anaconda: fix interrupt remapping detection
+
+---
+ pyanaconda/iutil.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/pyanaconda/iutil.py b/pyanaconda/iutil.py
+index 166626a67..c83bcddee 100644
+--- a/pyanaconda/iutil.py
++++ b/pyanaconda/iutil.py
+@@ -1115,7 +1115,7 @@ def is_unsupported_hw():
+             missing_features.append('HAP/SLAT/EPT/RVI')
+         # slightly different wording for Intel and AMD
+         if b'Intel VT-d Interrupt Remapping enabled' not in xl_dmesg \
+-                    and 'Interrupt remapping enabled' not in xl_dmesg:
++                    and b'Interrupt remapping enabled' not in xl_dmesg:
+             missing_features.append('Interrupt Remapping')
+         status = ', '.join(missing_features)
+ 
+-- 
+2.17.1
+

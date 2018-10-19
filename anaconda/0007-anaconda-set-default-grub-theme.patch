@@ -1,0 +1,35 @@
+From 77a83778b2178f2c17e33464a03bbe49370cd827 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.epitre@orange.fr>
+Date: Fri, 19 Oct 2018 08:02:11 +0200
+Subject: [PATCH] anaconda: set default grub theme
+
+---
+ pyanaconda/bootloader.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/pyanaconda/bootloader.py b/pyanaconda/bootloader.py
+index 68fca98bf..b6488c5fd 100644
+--- a/pyanaconda/bootloader.py
++++ b/pyanaconda/bootloader.py
+@@ -1401,7 +1401,7 @@ class GRUB2(GRUB):
+     _config_file = "grub.cfg"
+     _config_dir = "grub2"
+     defaults_file = "/etc/default/grub"
+-    terminal_type = "console"
++    terminal_type = "gfxterm"
+     stage2_max_end = None
+ 
+     # requirements for boot devices
+@@ -1503,7 +1503,7 @@ class GRUB2(GRUB):
+         log.info("bootloader.py: used boot args: %s ", self.boot_args)
+         defaults.write("GRUB_CMDLINE_LINUX=\"%s\"\n" % self.boot_args)
+         defaults.write("GRUB_DISABLE_RECOVERY=\"true\"\n")
+-        #defaults.write("GRUB_THEME=\"/boot/grub2/themes/system/theme.txt\"\n")
++        defaults.write("GRUB_THEME=\"/boot/grub2/themes/system/theme.txt\"\n")
+         defaults.close()
+ 
+     def _encrypt_password(self):
+-- 
+2.17.1
+

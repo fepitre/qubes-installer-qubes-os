@@ -1,0 +1,39 @@
+From f6c417729a797a794b5d5310122fc2f82a8c597f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.epitre@orange.fr>
+Date: Fri, 19 Oct 2018 08:02:13 +0200
+Subject: [PATCH] anaconda: abort installation on X startup fail
+
+Do not fallback to text mode, which cannot property install the system
+without kickstart file (missing LUKS passphrase prompt).
+
+Fixes QubesOS/qubes-issues#2996
+---
+ anaconda.py | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/anaconda.py b/anaconda.py
+index 25eba4b0a..f5c7fdb7f 100755
+--- a/anaconda.py
++++ b/anaconda.py
+@@ -543,10 +543,13 @@ def setupDisplay(anaconda, options, addons=None):
+             doStartupX11Actions()
+         except (OSError, RuntimeError) as e:
+             log.warning("X startup failed: %s", e)
+-            stdoutLog.warning("X startup failed, falling back to text mode")
+-            anaconda.displayMode = 't'
+-            graphical_failed = 1
+-            time.sleep(2)
++            stdoutLog.warning("X startup failed, aborting installation")
++            stdoutLog.error("X startup failed, aborting installation")
++            print(_("The installation cannot continue and the system will be rebooted"))
++            print(_("Press ENTER to continue"))
++            input()
++            iutil.ipmi_report(constants.IPMI_ABORTED)
++            sys.exit(1)
+ 
+         if not graphical_failed:
+             doExtraX11Actions(options.runres)
+-- 
+2.17.1
+

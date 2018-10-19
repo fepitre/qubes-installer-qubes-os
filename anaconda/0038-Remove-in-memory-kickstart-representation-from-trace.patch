@@ -1,0 +1,41 @@
+From e1e16b5fa1b8fa156b8a393f4147f4120e7af56a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.epitre@orange.fr>
+Date: Fri, 19 Oct 2018 08:02:12 +0200
+Subject: [PATCH] Remove in-memory kickstart representation from traceback file
+ (#1519895)
+
+We have been doing this filtering already, but some paths have likely
+changed and the filter was no longer effective.
+
+So add two new filter strings:
+"_intf.storage.ksdata"
+"_intf.data"
+
+After adding these two I was no longer able to find the plaintext password
+anywhere in the traceback after manually triggering a crash with:
+
+kill -USR1 `cat /var/run/anaconda.pid`
+
+Resolves: rhbz#1519895
+---
+ pyanaconda/exception.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/pyanaconda/exception.py b/pyanaconda/exception.py
+index c283a605a..483cd51c4 100644
+--- a/pyanaconda/exception.py
++++ b/pyanaconda/exception.py
+@@ -274,7 +274,9 @@ def initExceptionHandling(anaconda):
+                                 "_intf._currentAction._spokes[\"UserSpoke\"]._oldweak",
+                                 "_intf.storage.bootloader.password",
+                                 "_intf.storage.data",
++                                "_intf.storage.ksdata",
+                                 "_intf.storage.encryption_passphrase",
++                                "_intf.data",
+                                 "_bootloader.encrypted_password",
+                                 "_bootloader.password",
+                                 "payload._groups"],
+-- 
+2.17.1
+

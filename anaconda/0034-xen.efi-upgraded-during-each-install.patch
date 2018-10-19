@@ -1,0 +1,39 @@
+From 166c96e665a9874c14fbc43d250996d5161536b0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.epitre@orange.fr>
+Date: Fri, 19 Oct 2018 08:02:12 +0200
+Subject: [PATCH] xen.efi upgraded during each install
+
+---
+ pyanaconda/bootloader.py | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/pyanaconda/bootloader.py b/pyanaconda/bootloader.py
+index b1e9ff421..27c7ed34a 100644
+--- a/pyanaconda/bootloader.py
++++ b/pyanaconda/bootloader.py
+@@ -1851,12 +1851,15 @@ class XenEFI(EFIGRUB):
+             boot_part_num = self.stage1_device.parents[0].parted_partition.number
+         boot_part_num = str(boot_part_num)
+ 
+-        if not os.path.exists(
+-                "{}/{}".format(iutil.getSysroot() + self.config_dir, "xen.efi")):
+-            xen_efi = [x for x in os.listdir(iutil.getSysroot() + self.config_dir) if
+-                       x.startswith('xen-') and x.endswith('.efi')][0]
+-            shutil.copy("{}/{}".format(iutil.getSysroot() + self.config_dir, xen_efi),
+-                        "{}/{}".format(iutil.getSysroot() + self.config_dir, "xen.efi"))
++        # could be an old version, replace in case
++        xen_efi_target = "{}/{}".format(iutil.getSysroot() + self.config_dir, "xen.efi")
++        if os.path.exists(xen_efi_target):
++            os.remove(xen_efi_target)
++
++        xen_efi = [x for x in os.listdir(iutil.getSysroot() + self.config_dir) if
++                   x.startswith('xen-') and x.endswith('.efi')][0]
++        shutil.copy("{}/{}".format(iutil.getSysroot() + self.config_dir, xen_efi),
++                    "{}/{}".format(iutil.getSysroot() + self.config_dir, "xen.efi"))
+         rc = self.efibootmgr("-c", "-w", "-L", productName,
+                              "-d", boot_disk.path, "-p", boot_part_num,
+                              "-l",
+-- 
+2.17.1
+

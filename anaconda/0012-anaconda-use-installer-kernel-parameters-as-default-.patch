@@ -1,0 +1,56 @@
+From 51ccd4df3cdecf27b62b2ca6b4778d739e6e52c3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fr=C3=A9d=C3=A9ric=20Pierret=20=28fepitre=29?=
+ <frederic.epitre@orange.fr>
+Date: Fri, 19 Oct 2018 08:02:12 +0200
+Subject: [PATCH] anaconda: use installer kernel parameters as default for
+ installed system
+
+This way if any kernel parameter was need to boot Qubes on particular hardware, it will also be set to installed system
+
+Fixes QubesOS/qubes-issues#1650
+---
+ pyanaconda/bootloader.py | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/pyanaconda/bootloader.py b/pyanaconda/bootloader.py
+index 908020ad0..963af46f9 100644
+--- a/pyanaconda/bootloader.py
++++ b/pyanaconda/bootloader.py
+@@ -229,14 +229,13 @@ class BootLoader(object):
+     def stage2_format_types(self):
+         return ["ext4", "ext3", "ext2"]
+ 
+-    # this is so stupid...
+-    global_preserve_args = ["speakup_synth", "apic", "noapic", "apm", "ide",
+-                            "noht", "acpi", "video", "pci", "nodmraid",
+-                            "nompath", "nomodeset", "noiswmd", "fips",
+-                            "selinux", "biosdevname", "ipv6.disable",
+-                            "net.ifnames"]
+     preserve_args = []
+ 
++    global_no_preserve_args = ["stage2", "root", "rescue",
++                               "rd.live.check", "ip", "repo", "ks",
++                               "rd.lvm", "rd.md", "rd.luks", "rd.dm",
++                               "rd.lvm.lv"]
++
+     _trusted_boot = False
+ 
+     def __init__(self):
+@@ -870,11 +869,10 @@ class BootLoader(object):
+             self.boot_args.add("iscsi_firmware")
+ 
+         #
+-        # preservation of some of our boot args
+-        # FIXME: this is stupid.
++        # preservation of most of our boot args
+         #
+-        for opt in self.global_preserve_args + self.preserve_args:
+-            if opt not in flags.cmdline:
++        for opt in flags.cmdline.keys():
++            if opt in self.global_no_preserve_args:
+                 continue
+ 
+             arg = flags.cmdline.get(opt)
+-- 
+2.17.1
+
