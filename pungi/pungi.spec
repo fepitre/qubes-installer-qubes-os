@@ -1,6 +1,6 @@
 Name:           pungi
-Version:        4.1.14
-Release:        2%{?dist}
+Version:        4.1.29
+Release:        1%{?dist}
 Epoch:          1000
 Summary:        Distribution compose tool
 
