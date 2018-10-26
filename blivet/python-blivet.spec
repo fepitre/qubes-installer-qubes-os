@@ -1,116 +1,617 @@
+%bcond_without python3
+
+%if 0%{?fedora} > 28
+# disable python2 by default
+%bcond_with python2
+%else
+%bcond_without python2
+%endif
+
 Summary:  A python module for system storage configuration
 Name: python-blivet
-Url: http://fedoraproject.org/wiki/blivet
-Version: 2.1.6
+Url: https://storageapis.wordpress.com/projects/blivet
+Version: 3.1.1
 
-#%%global prerelease .b1
+#%%global prerelease .b2
 # prerelease, if defined, should be something like .a1, .b1, .b2.dev1, or .c2
-Release: 5%{?prerelease}%{?dist}
-Epoch: 2
+Release: 1%{?prerelease}%{?dist}
+Epoch: 1
 License: LGPLv2+
 Group: System Environment/Libraries
 %global realname blivet
 %global realversion %{version}%{?prerelease}
-Source0: http://github.com/rhinstaller/blivet/archive/%{realname}-%{realversion}.tar.gz
-
-Patch0: 0001-Use-correct-type-for-port-in-GVariant-tuple.patch
-Patch1: 0002-iSCSI-Store-auth-info-in-NodeInfo-tuples.patch
-Patch2: 0003-iSCSI-turn-iscsi.initiator_set-into-a-property.patch
-Patch3: 0004-Add-device-symlinks-to-the-PVs-dictionary-for-MD-RAI.patch
-Patch4: 0001-Fix-detection-of-macefi-partitions-1393846.patch
-Patch5: 0001-Fix-unknown-SAS-device-sysfs-parsing.patch
-Patch6: 0001-Change-how-we-run-e2fsck-to-check-ext-filesystems.patch
-Patch7: 0002-Do-not-run-FS-check-as-part-of-updating-re-size-info.patch
-Patch8: 0001-Fix-AttributeError-in-fsminsize-1502587.patch
+Source0: http://github.com/storaged-project/blivet/archive/%{realname}-%{realversion}.tar.gz
+Patch0: 0001-force-lvm-plugin.patch
 
 # Versions of required components (done so we make sure the buildrequires
 # match the requires versions of things).
-%global pykickstartver 1.99.22
-%global pocketlintver 0.4
 %global partedver 1.8.1
 %global pypartedver 3.10.4
-%global e2fsver 1.41.0
 %global utillinuxver 2.15.1
-%global libblockdevver 1.9
+%global libblockdevver 2.19
 %global libbytesizever 0.3
 %global pyudevver 0.18
 
 BuildArch: noarch
-BuildRequires: gettext
-BuildRequires: python3-pocketlint >= %{pocketlintver}
-BuildRequires: python3-devel python3-setuptools
 
 %description
 The python-blivet package is a python module for examining and modifying
 storage configuration.
 
+%package -n %{realname}-data
+Summary: Data for the %{realname} python module.
+
+BuildRequires: systemd
+
+Conflicts: python-blivet < 1:2.0.0
+Conflicts: python3-blivet < 1:2.0.0
+
+%description -n %{realname}-data
+The %{realname}-data package provides data files required by the %{realname}
+python module.
+
+%if %{with python3}
 %package -n python3-%{realname}
 Summary: A python3 package for examining and modifying storage configuration.
+
+%{?python_provide:%python_provide python3-%{realname}}
+
+BuildRequires: gettext
+BuildRequires: python3-devel
+BuildRequires: python3-setuptools
+
 Requires: python3
 Requires: python3-six
-Requires: python3-kickstart
 Requires: python3-pyudev >= %{pyudevver}
 Requires: parted >= %{partedver}
 Requires: python3-pyparted >= %{pypartedver}
 Requires: libselinux-python3
 Requires: python3-blockdev >= %{libblockdevver}
-Requires: libblockdev-plugins-all >= %{libblockdevver}
+Recommends: libblockdev-btrfs >= %{libblockdevver}
+Recommends: libblockdev-crypto >= %{libblockdevver}
+Recommends: libblockdev-dm >= %{libblockdevver}
+Recommends: libblockdev-fs >= %{libblockdevver}
+Recommends: libblockdev-kbd >= %{libblockdevver}
+Recommends: libblockdev-loop >= %{libblockdevver}
+Recommends: libblockdev-lvm >= %{libblockdevver}
+Recommends: libblockdev-mdraid >= %{libblockdevver}
+Recommends: libblockdev-mpath >= %{libblockdevver}
+Recommends: libblockdev-nvdimm >= %{libblockdevver}
+Recommends: libblockdev-part >= %{libblockdevver}
+Recommends: libblockdev-swap >= %{libblockdevver}
+Recommends: libblockdev-s390 >= %{libblockdevver}
 Requires: python3-bytesize >= %{libbytesizever}
 Requires: util-linux >= %{utillinuxver}
-Requires: dosfstools
-Requires: e2fsprogs >= %{e2fsver}
 Requires: lsof
-Requires: python3-hawkey
 Requires: python3-gobject-base
-Obsoletes: blivet-data < 1:2.0.3
-Obsoletes: python-blivet < 1:2.0.3
+Requires: systemd-udev
+Requires: %{realname}-data = %{epoch}:%{version}-%{release}
+
+Obsoletes: blivet-data < 1:2.0.0
+
+%if %{without python2}
+Obsoletes: python2-blivet < 1:2.0.2-2
+Obsoletes: python-blivet < 1:2.0.2-2
+%else
+Obsoletes: python-blivet < 1:2.0.0
+%endif
 
 %description -n python3-%{realname}
 The python3-%{realname} is a python3 package for examining and modifying storage
 configuration.
+%endif
+
+%if %{with python2}
+%package -n python2-%{realname}
+Summary: A python2 package for examining and modifying storage configuration.
+
+%{?python_provide:%python_provide python2-%{realname}}
+
+BuildRequires: gettext
+BuildRequires: python2-devel
+BuildRequires: python2-setuptools
+
+Requires: python2
+Requires: python2-six
+Requires: python2-pyudev >= %{pyudevver}
+Requires: parted >= %{partedver}
+Requires: python2-pyparted >= %{pypartedver}
+Requires: python2-libselinux
+Requires: python2-blockdev >= %{libblockdevver}
+Recommends: libblockdev-btrfs >= %{libblockdevver}
+Recommends: libblockdev-crypto >= %{libblockdevver}
+Recommends: libblockdev-dm >= %{libblockdevver}
+Recommends: libblockdev-fs >= %{libblockdevver}
+Recommends: libblockdev-kbd >= %{libblockdevver}
+Recommends: libblockdev-loop >= %{libblockdevver}
+Recommends: libblockdev-lvm >= %{libblockdevver}
+Recommends: libblockdev-mdraid >= %{libblockdevver}
+Recommends: libblockdev-mpath >= %{libblockdevver}
+Recommends: libblockdev-nvdimm >= %{libblockdevver}
+Recommends: libblockdev-part >= %{libblockdevver}
+Recommends: libblockdev-swap >= %{libblockdevver}
+Recommends: libblockdev-s390 >= %{libblockdevver}
+Requires: python2-bytesize >= %{libbytesizever}
+Requires: util-linux >= %{utillinuxver}
+Requires: lsof
+Requires: python2-hawkey
+Requires: %{realname}-data = %{epoch}:%{version}-%{release}
+
+Requires: systemd-udev
+Requires: python2-gobject-base
+
+Obsoletes: blivet-data < 1:2.0.0
+Obsoletes: python-blivet < 1:2.0.0
+
+%description -n python2-%{realname}
+The python2-%{realname} is a python2 package for examining and modifying storage
+configuration.
+%endif
 
 %prep
-%setup -q -n %{realname}-%{realversion}
-%patch0 -p1
-%patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
-%patch8 -p1
-
-rm -rf %{py3dir}
-cp -a . %{py3dir}
+%autosetup -n %{realname}-%{realversion} -p1
 
 %build
-# don't try to regenerate blivet.pot as part of the rpm build.
-touch po/blivet.pot
-make
+%{?with_python2:make PYTHON=%{__python2}}
+%{?with_python3:make PYTHON=%{__python3}}
 
 %install
-make PYTHON=%{__python3} DESTDIR=%{buildroot} install
+%{?with_python2:make PYTHON=%{__python2} DESTDIR=%{buildroot} install}
+%{?with_python3:make PYTHON=%{__python3} DESTDIR=%{buildroot} install}
+
 %find_lang %{realname}
 
-%files -n python3-%{realname} -f %{realname}.lang
+%files -n %{realname}-data -f %{realname}.lang
+%{_sysconfdir}/dbus-1/system.d/*
+%{_datadir}/dbus-1/system-services/*
+%{_libexecdir}/*
+%{_unitdir}/*
+
+%if %{with python2}
+%files -n python2-%{realname}
+%license COPYING
+%doc README ChangeLog examples
+%{python2_sitelib}/*
+%endif
+
+%if %{with python3}
+%files -n python3-%{realname}
 %license COPYING
 %doc README ChangeLog examples
 %{python3_sitelib}/*
+%endif
 
 %changelog
-* Tue Nov 15 2016 David Lehman <dlehman@redhat.com> - 2.1.6-4
-- Fix detection of 'macefi' partitions (#1393846) (awilliam)
+* Wed Sep 26 2018 Vojtech Trefny <vtrefny@redhat.com> - 3.1.1-1
+- Check device dependencies only for device actions (vtrefny)
+- Allow removing btrfs volumes without btrfs support (vtrefny)
+- Adjust LVMPhysicalVolumeMethodsTestCase to new pvcreate option (vtrefny)
+- add `-y' to lvm.pvcreate (hongxu.jia)
+- Drop omap partition table tests on ARM platforms (pbrobinson)
+- Update disk label tests for ARM platforms (pbrobinson)
+- Ignore pylint 'no-value-for-parameter' warning (vtrefny)
+- arm: add support for EFI on ARMv7 (pbrobinson)
+- Aarch64 platforms: Fix gpt defaults for 64 bit arm platforms (pbrobinson)
+- arch: arm: drop get_arm_machine function (pbrobinson)
+- arch: arm: drop omap specifics for partitioning (pbrobinson)
+- Create a separate availability check for dmraid support (vtrefny)
+
+* Thu Aug 30 2018 Vojtech Trefny <vtrefny@redhat.com> - 3.1.0-2
+- arm: add support for EFI on ARMv7 (probinson)
+- Aarch64 platforms: Fix gpt defaults for 64 bit arm platforms (probinson)
+- arch: arm: drop get_arm_machine function (probinson)
+- arch: arm: drop omap specifics for partitioning (probinson)
+
+* Mon Aug 13 2018 Vojtech Trefny <vtrefny@redhat.com> - 3.1.0-1
+- Allow configuring default LUKS2 PBKDF arguments using luks_data (vtrefny)
+- Fix the populate_kickstart method in LUKS (vtrefny)
+- Allow specifying extra arguments for PBKDF when creating LUKS2 (vtrefny)
+- Add support for LUKS2 to DeviceFactory (vtrefny)
+- DeviceFactory: use min_luks_entropy from kwargs (vtrefny)
+- Fix passing 'min_luks_entropy' when creating LUKS format (vtrefny)
+- Use passphrase/key file when resizing LUKS2 format (vtrefny)
+- Require libblockdev 2.17 (vtrefny)
+- Add support for LUKS2 format (vtrefny)
+- Add initial support for DM Integrity "format" (vtrefny)
+- Do not try to add LUKSDevice in LUKSFormatPopulator (vtrefny)
+- Add support for dm-integrity devices (vtrefny)
+- Fixed various issues preventing successful build (japokorn)
+
+* Thu Aug  2 2018 Peter Robinson <pbrobinson@fedoraproject.org> 3.1.0-0.5.b2
+- Bump release to fix upgrade path
+
+* Mon Jul 30 2018 David Lehman <dlehman@redhat.com> - 3.1.0-0.1.b2
+- Do not ignore "Image out-of-sync" internal LVs (vtrefny)
+- Fixed error message when slave is missing (japokorn)
+- Ensure WWNs are set for multipath and dmraid. (dlehman)
+- Use ID_WWN_WITH_EXTENSION for WWNs. (dlehman)
+- Ignore pylint error "bad-option-value" for new pylint errors (vtrefny)
+- Fix errors found by new pylint 2.0.0 (vtrefny)
+- Fix caching logic in ExternalResource. (dlehman)
+- Use DiskFile to allow testing missing dependencies as non-root. (dlehman)
+- Restore availability caching after disabling for tests. (dlehman)
+- Preserve original blockdev plugin list in test cleanup. (dlehman)
+- Fix positional/key-word arguments in util.Path (vtrefny)
+- fix doc for is_s390() (dan)
+- The key size of LUKS should be 0 by default (vponcova)
+- Do not use rpm to check for Zanata client (vtrefny)
+- Fixed create_device fail behavior (japokorn)
+- Fixed KS forcing zerombr onto RO disk (japokorn)
+- Fix BIOS device number regex in edd module. (#1552236) (dlehman)
+- Shrink devices before growing others with common ancestors. (#1539422) (dlehman)
+- Do not copy ksdata. (rvykydal)
+- Find and remove stale LVM metadata immediately after creating md array. (dlehman)
+- Adapt mock imports for compatibility w/ python2 & python3. (dlehman)
+- Use py2-compatible syntax to get system architecture. (dlehman)
+
+* Tue Jul 17 2018 Vojtech Trefny <vtrefny@redhat.com> - 3.1.0-0.4.b1
+- Force command line based libblockdev LVM plugin (vtrefny)
+
+* Fri Jul 13 2018 Fedora Release Engineering <releng@fedoraproject.org> - 1:3.1.0-0.3.b1
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
+
+* Fri Jun 15 2018 Miro Hrončok <mhroncok@redhat.com> - 1:3.1.0-0.2.b1
+- Rebuilt for Python 3.7
+
+* Wed May 02 2018 David Lehman <dlehman@redhat.com> - 3.1.0-0.1.b1
+- Add 'nvdimm' tag for NVDIMM namespaces (vtrefny)
+- Add test for NVDIMMNamespaceDevicePopulator (vtrefny)
+- Add populator helper for NVDIMM namespaces (vtrefny)
+- Add 'NVDIMMNamespaceDevice' device representing NVDIMM namespaces (vtrefny)
+- Add a function for identifying NVDIMM namespaces (vtrefny)
+- Add a singleton for NVDIMM namespaces management (vtrefny)
+- Add NVDIMM plugin to list of requested plugins (vtrefny)
+
+* Fri Apr 20 2018 David Lehman <dlehman@redhat.com> - 3.0.1-1
+- Weak dependencies for libblockdev plugins (japokorn)
+- Translate log levels from libblockdev to python log levels (vtrefny)
+- Try to wait after stopping an MD array (vtrefny)
+- Replace deprecated iscsi_firmware dracut option (rvykydal)
+- Fix how we check return value for call_sync in safe_dbus (vtrefny)
+- Conditionalize the Python 2 subpackage and don't build it on EL > 7 and
+  Fedora > 28 (miro)
+- Fix python3 conditional in rpm spec file. (dlehman)
+- Fix upstream URL in spec (vtrefny)
+- Allow device specification by node to udev.get_device. (#1524700) (dlehman)
+- Do not try to update potfile during make all (vtrefny)
+- Use '-p1' when applying patches with autosetup (vtrefny)
+- Remove dependency on pocketlint (vtrefny)
+- Dasd is a valid label type on s390x (#1538550) (vponcova)
+- fcoe: remove /etc/fcoe dir if it exists before copying configuration
+  (#1542846) (rvykydal)
+- Avoid UnitTest.subTest due to python2 incompatibility. (dlehman)
+- Adapt action test mock imports for compatibility w/ python2 & python3.
+  (dlehman)
+- Use explicit super() syntax in config actions for py2 compat. (dlehman)
+- Use libblockdev runtime dependency checks (#1501249) (vtrefny)
+- Fix minor typos (yurchor)
+
+* Mon Apr 02 2018 David Lehman <dlehman@redhat.com> - 1:3.0.0-0.6.1.b1
+- Use bcond for with python3, allow it on RHEL > 7 (mhroncok)
+- Conditionalize the Python 2 subpackage and don't build it on EL > 7 and Fedora > 28 (mhroncok)
+
+* Tue Mar 20 2018 David Lehman <dlehman@redhat.com> - 1:3.0.0-0.6.b1
+- Don't use a 'wwn' kwarg for MDBiosRaidArrayDevice (#1557957) (awilliam)
+
+* Sat Mar 17 2018 Iryna Shcherbina <ishcherb@redhat.com> - 1:3.0.0-0.5.b1
+- Update Python 2 dependency declarations to new packaging standards
+  (See https://fedoraproject.org/wiki/FinalizingFedoraSwitchtoPython3)
+
+* Mon Mar 12 2018 David Lehman <dlehman@redhat.com> - 1:3.0.0-0.4.b1
+- Allow device specification by node to udev.get_device. (#1524700)
+
+* Tue Mar 06 2018 Vojtech Trefny <vtrefny@redhat.com> - 1:3.0.0-0.3.b1
+- Dasd is a valid label type on s390x (#1538550)
+
+* Fri Feb 09 2018 Fedora Release Engineering <releng@fedoraproject.org> - 1:3.0.0-0.2.b1
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_28_Mass_Rebuild
+
+* Wed Nov 08 2017 David Lehman <dlehman@redhat.com> - 3.0.0-0.1.b1
+- Add some reasonable default value for LANG variable in size_test (vtrefny)
+- Remove ksdata from Blivet. (dlehman)
+- Fix AttributeError in fsminsize (#1502587) (vtrefny)
+- Remove Blivet.write_dasd_conf and now-unused Blivet.write. (dlehman)
+- Move blivet.partspec into pyanaconda. (dlehman)
+- Make uboot partition weight match analogs on other platforms. (dlehman)
+- Move some cmdline option checking into Flags. (dlehman)
+- Move platform module into pyanaconda. (dlehman)
+- Add and use new platform detection functions in arch. (dlehman)
+- Move disklabel selection logic into DiskLabel. (dlehman)
+- Move new partition weight calculation into PartitionDevice. (dlehman)
+- Move osinstall and autopart into pyanaconda. (dlehman)
+- Move default thin pool space reservation into devices.lvm. (dlehman)
+- DM device subsystem is now obtained by libblockdev (japokorn)
+- Document DBus interface. (dlehman)
+- Mark the DBus interface as unstable. (dlehman)
+- Do not try to use protected disks for autopart (vtrefny)
+- Use InstallerStorage in setupDiskImagesNonZeroSizeTestCase (vtrefny)
+- Clearpart test tag fixes (japokorn)
+- Added support for device tags (japokorn)
+- Use Ansible playbook to install test dependencies (vtrefny)
+- Use addCleanup for VM tests too (vtrefny)
+- Skip tests when SELinux is disabled (japokorn)
+- Revert "Use libmount for MountsCache" (vtrefny)
+- Only run log_method_call when flags.debug is set. (dlehman)
+- Adjust Makefile and spec file for Python 2 compatibility (vtrefny)
+- Adapt to anaconda_log rename (mkolman)
+- Followup for custom six move for mock. (dlehman)
+- Silence pylint with regard to custom six move of mock. (dlehman)
+- Allow overriding PYTHONPATH when running unit tests. (dlehman)
+- Supply some missing patches during device name tests. (dlehman)
+- Allow time for event handling in unit tests. (dlehman)
+- python2: Don't try to call unbound method w/ wrong class type. (dlehman)
+- python2: threading compatibility. (dlehman)
+- python2: compatibility for wraps when used on methods. (dlehman)
+- python2: adapt to absence of inspect.signature. (dlehman)
+- python2: python2 has no unittest.assertLogs. (dlehman)
+- python2: Handle unittest.assertRaisesRegex rename. (dlehman)
+- python2: Add a custom six move for mock. (dlehman)
+- python2: EddEntry support for len() and indexing. (dlehman)
+- python2: Don't use 'default' kwarg to 'min' (dlehman)
+- python2: Use six.wraps instead of functools.wraps. (dlehman)
+- python2: Use six.raise_from for chained exceptions. (dlehman)
+- python2: Use six.next for iterator advancement. (dlehman)
+- python2: Explicit args to super function. (dlehman)
+- python2: Explicitly declare new-style classes. (dlehman)
+- python2: Use six.add_metaclass instead of metaclass kwarg. (dlehman)
+- Catch AttributeError if pyanaconda is missing in populator_test. (dlehman)
+- Use relative imports in blivet.dbus.blivet. (dlehman)
+- pylint: disable pylint warning for InstallerStorage.get_free_space (vtrefny)
+- pylint: ignore some pylint warnings in tests (vtrefny)
+- Use "flags.keep_empty_ext_partitions" instead of "installer_mode" (vtrefny)
+- Add a WWN attr to all disk device classes. (dlehman)
+- Fix flag access in selinux test. (dlehman)
+- Collect HW RAID info before populating devicetree. (dlehman)
+- Add HW RAID properties to DiskDevice. (dlehman)
+- Add a devicelibs module for disks. (dlehman)
+- Add 'jbod' as an alias for 'linear' RAID level. (dlehman)
+- Add some tests for DependencyGuard (dlehman)
+- Introduce the discard_new flag and use it (vpodzime)
+- Use the 'C.UTF-8' locale instead of '' (vpodzime)
+- Add anaconda-core, libvirt and paramiko to TEST_DEPENDENCIES (vpodzime)
+- Get rid of the merge-pr script (vpodzime)
+- Adjust vmtest to new DeviceFactory constructor API (vtrefny)
+- Obtain factory defaults from passed-in device, if there is one. (dlehman)
+- Use **kwargs for device factory ctor. (dlehman)
+- Use a property to adjust factory size based on encrypted bool. (dlehman)
+- Functional testing: Add support for libvirt authentication (vtrefny)
+- Fixed merge error (japokorn)
+- Enable LVMOnMDTestCase (vtrefny)
+- LVMThinSnapShotTestCase: Fix creating of the thin snapshot (vtrefny)
+- Create a better test summary when running tests in a VM (vtrefny)
+- Add a script to run tests in a virtual machine (vtrefny)
+- Move BlivetResetTestCases from ImageBackedTestCase to VMBackedTestCase
+  (vtrefny)
+- Add a test case for tests running in a virtual machine (vtrefny)
+- Do not try to create format for snapshots in create_device (vtrefny)
+- Use None as mountpoint for new snapshots (vtrefny)
+- Do not try to unset flags on other devices than partitions (vtrefny)
+- Fix TypeError when calling blivet.reset() (vtrefny)
+- Broke backwards API compatibility of LUKS handling (japokorn)
+- Default to LVM in the device factory. (dlehman)
+- Add callbacks for populate (vpodzime)
+- Fix checks when changing fslabel using actions (vtrefny)
+- Remove deprecated method udev.device_is_realdisk (vtrefny)
+- Use libmount for MountsCache (vtrefny)
+- Fix initialization of ignored, exclusive disks. (dlehman)
+- Fix devicetree tests to use callbacks instead of record_change. (dlehman)
+- Change udev.device_is_disk to match disks only (vtrefny)
+- Fix udev.resolve_glob to match device path too (vtrefny)
+- Add tests for configuration actions (vtrefny)
+- Allow changing format label using configuration actions (vtrefny)
+- Add new actions for configuring formats and devices (vtrefny)
+- Quickfix of merge bugs (japokorn)
+- Remove action objects before resetting via dbus. (dlehman)
+- Clean up dbus object management a bit. (dlehman)
+- Only overwrite current format if the new one is different. (dlehman)
+- Add a Factory method to DBusBlivet. (dlehman)
+- Update example dbus client to account for Format interface. (dlehman)
+- Adjust zanata version for new branch. (dlehman)
+- Allow custom chunk size specification for MDRaidArrayDevice (vtrefny)
+- Add zanata-python-client to TEST_DEPENDENCIES (bcl)
+- Allow custom chunk size specification for MDRaidArrayDevice (vtrefny)
+- Add zanata-python-client to TEST_DEPENDENCIES (bcl)
+- Add a Commit method to DBusBlivet. (dlehman)
+- Update unit tests. (dlehman)
+- Move removed devices and formats into different subtrees. (dlehman)
+- Use the object manager to look up objects. (dlehman)
+- Add mappings of objects by id and object path to ObjectManager. (dlehman)
+- Add an id property to DBusObject. (dlehman)
+- Add an Action interface to the dbus service. (dlehman)
+- Make sure DBusFormat's Type property is always a string. (dlehman)
+- Pass blivet objects to blivet methods. (dlehman)
+- Fix root detection on btrfs in rescue mode (vtrefny)
+- Use device's mount options when mounting existing systems (vtrefny)
+- Add a Commit method to DBusBlivet. (dlehman)
+- Update unit tests. (dlehman)
+- Move removed devices and formats into different subtrees. (dlehman)
+- Use the object manager to look up objects. (dlehman)
+- Add mappings of objects by id and object path to ObjectManager. (dlehman)
+- Add an id property to DBusObject. (dlehman)
+- Add an Action interface to the dbus service. (dlehman)
+- Make sure DBusFormat's Type property is always a string. (dlehman)
+- Pass blivet objects to blivet methods. (dlehman)
+- Move some more installer-specific methods and values into blivet.osinstall.
+  (sbueno+anaconda)
+- Mv copy_to_system from blivet.util to blivet.osinstall (sbueno+anaconda)
+- Get rid of flags.installer_mode (sbueno+anaconda)
+- Create flags.keep_empty_ext_partitions (sbueno+anaconda)
+- Create flags.selinux_reset_fcon (sbueno+anaconda)
+- Create flags.auto_dev_updates (sbueno+anaconda)
+- Add a Format interface to the dbus service. (dlehman)
+- Always require the rounding mode to be specified for Size (vpodzime)
+- Add method DBusBlivet.InitializeDisk. (dlehman)
+- Add a unit test for DBusBlivet.RemoveDevice. (dlehman)
+- Maintain a mapping of object path to DBusDevice in DBusBlivet. (dlehman)
+- Correctly handle failures in ResolveDevice. (dlehman)
+- Add a RemoveDevice method to DBusBlivet. (dlehman)
+- Convert event handling change accounting to use blivet callbacks. (dlehman)
+- Add a set of callbacks for changes to blivet's view of things. (dlehman)
+- Allow replacing an active format within blivet's model. (dlehman)
+- Add the beginnings of an example client. (dlehman)
+- Add a Device interface to the dbus service. (dlehman)
+- Add an ObjectManager interface to the dbus service. (dlehman)
+- Make DBusBlivet names more dbus-like. (dlehman)
+- Clean up org.freedesktop.DBus.Properties code in DBusObject a bit. (dlehman)
+- Move constants into a separate module. (dlehman)
+- Convert some private methods to public properties. (dlehman)
+- Import the whole dbus module in a couple of places. (dlehman)
+- Add a minimal dbus interface. (dlehman)
+- Rearrange the setup call to minimize changes on updates. (dlehman)
+- Remove unused readthedocs code from setup.py. (dlehman)
+- Ignore all merge commits when making rpm log. (dlehman)
+- Isolate some boot device operations in blivet.partitioning. (sbueno+anaconda)
+- Move bootloader stuff from Blivet to InstallerStorage. (sbueno+anaconda)
+- Some small, stupid bugfixes to first installer isolation patch set.
+  (sbueno+anaconda)
+- LVM data are now global (japokorn)
+- Update api to reflect changes from isolating installer-specific code.
+  (sbueno+anaconda)
+- Update examples and test cases for changes from isolating installer code.
+  (sbueno+anaconda)
+- Get rid of blivet.blivet's last deps on blivet.osinstall (sbueno+anaconda)
+- Get rid of blivet.blivet's dependence on blivet.osinstall.FSSet
+  (sbueno+anaconda)
+- Mv installer-specific functions to install. Create InstallerStorage.
+  (sbueno+anaconda)
+- Move StorageDiscoveryConfig from blivet.blivet to blivet.osinstall
+  (sbueno+anaconda)
+- Move some StorageDiscoveryConfig attrs into Blivet. (sbueno+anaconda)
+- Retrieve udev info as needed in handle_format. (dlehman)
+
+* Tue Sep 19 2017 Vojtech Trefny <vtrefny@redhat.com> - 2.1.11-1
+- Remove build requires for pocketlint (rkuska)
+- edd_test: don't run on non-x86 (pjones)
+- Added support for device tags (japokorn)
+- fcoe: don't use dcb for autoconnecting of bnx2x and bnx2fc (#1261703)
+  (rvykydal)
+- fcoe: replace fipvlan with fcoemon (#1085325) (rvykydal)
+- Do not use read-only mode for e2fsck (vpodzime)
+- Fixed behavior when selinux is disabled (japokorn)
+- Do file system check before resize (#1484575) (vpodzime)
+
+* Thu Aug 17 2017 Vojtech Trefny <vtrefny@redhat.com> - 2.1.10-1
+- Use addCleanup for test cleanup instead of clening in tearDown (vtrefny)
+- No longer skip test w/o selinux; mocked (japokorn)
+- Skip tests when SELinux is disabled (japokorn)
+- New test for selinux context setting when mounting (japokorn)
+- Add tests for disklabel type selection and partition weight. (dlehman)
+- Do not use package version to check version of installed tools (vtrefny)
+- Update the upstream git URL (vpodzime)
+- Stop enforcing obsolete limits on partition count. (#1460668) (dlehman)
+- Do not run FS check as part of updating (re)size info (vpodzime)
+- Change how we run e2fsck to check ext filesystems (vpodzime)
+- Round the recommended thpool metadata size to extents (vpodzime)
+- Respect thin pool's min size when setting its req_size (vpodzime)
+- Don't crash during populate when lvm plugin is missing. (dlehman)
+- Actually add space for LUKS metadata when encrypting a VG (vpodzime)
+- Only consider old and new device sizes when not growing to max (vpodzime)
+- Do not reserve space for LVM metadata twice (vpodzime)
+- Do not create a temporary list for sum() (vpodzime)
+- Refer to self.container as self.vg in the LVMFactory (vpodzime)
+- Add a couple of extra comments and docstrings to factories (vpodzime)
+- Use existing VG's PE size if available in LVMFactory (vpodzime)
+- Add comments warning before a weird nomenclature in factories (vpodzime)
+- Don't let device state block modification of the model. (dlehman)
+- Fix error message for format create w/ missing external dep. (dlehman)
+- Expand coverage of devices_test.dependencies_test a bit. (dlehman)
+- Account for external dep availabilty in StorageDevice.controllable. (dlehman)
+- Add the appropriate external dependency to LUKSDevice. (dlehman)
+
+* Thu Jun 01 2017 Vojtech Trefny <vtrefny@redhat.com> - 2.1.9-1
+- Adapt to logging module name change (mkolman)
+- Updated calls to avoid log spamming (japokorn)
+- Add a script for generating and pushing updated documentation (vtrefny)
+- pylint: ignore some false positive warnings in blivet.py and lvm.py (vtrefny)
+- pylint: remove unused false positives from pocketlint config (vtrefny)
+- pylint: disable false positive "not-context-manager" for threading.Lock
+  (vtrefny)
+- pylint: ignore "arguments-differ" warnings in blivet.size.Size (vtrefny)
+- pylint: fix various "arguments-differ" warnings (vtrefny)
+- pylint: remove init from platform.X86 (vtrefny)
+- pylint: fix various errors in tests (vtrefny)
+- pylint: ignore "arguments-differ" warning for "do_tasks" method (vtrefny)
+- pylint: fix false positive for "catching-non-exception" (vtrefny)
+- pylint: fix argument name for Device._remove_parent/_add_parent (vtrefny)
+- Always mount & unmount an XFS file system when writing new UUID (vpodzime)
+- Do not remove manually created extended partitions (#1440150) (vtrefny)
+- Look the disk up for a partition by name not sys_name (vpodzime)
+- Disable pylint "no-member" warnings for re module constants (vtrefny)
+- Allow custom chunk size specification for MDRaidArrayDevice (vtrefny)
+- Add RAID chunk size to the generated kickstart file (vtrefny)
+- Use structured logging for the anaconda logger (mkolman)
+- Use distutils.spawn.find_executable instead of our custom code (vpodzime)
+- Add a method to reset file system's UUID (vpodzime)
+- Try to mount and unmount an XFS FS when writing UUID (vpodzime)
+- Add a method for a file system to generate a new UUID (vpodzime)
+- tests/fsuuid: Implement checking invalid UUIDs (aszlig)
+- formats/swap: Support setting UUID (aszlig)
+- tests: Add a series of tests for setting UUIDs (aszlig)
+- tests: Add tests to check the UUID format checkers (aszlig)
+- tasks: Implement setting UUID after FS creation (aszlig)
+- formats/fs: Implement setting UUID during mkfs (aszlig)
+- formats/fs: Add functionality for checking UUIDs (aszlig)
+- tasks/fsmkfs: Add arguments for setting UUID (aszlig)
+- Properly unset mountpoint of a snapshot's format (vpodzime)
+- Update snapshot's format's exists flag based on its origin (vpodzime)
+
+* Wed Apr 19 2017 Vojtech Trefny <vtrefny@redhat.com> - 2.1.8-1
+- Fix "unknown" SAS device sysfs parsing. (adamw)
+- Reserve space in a VG when using LVMThinPFactory (vpodzime)
+- Reserve space in a VG instead of padding thin pools on autopart (vpodzime)
+- Focus the nonzero disk image size test a bit. (dlehman)
+- Add missing tearDown method to luks resize test case. (dlehman)
+- Fix some flag stomping in tests. (dlehman)
+- Remove the useless method requiredDiskLabelType (vponcova)
+- FBA DASD should use the msdos disk label type (vponcova)
+- Be more careful when checking for udisks-iscsi availability (vpodzime)
+- Do not allow resize of devices with no/unrecoginized formatting. (#1033778)
+  (dlehman)
+- Clean up parent/child relations on partition ctor error. (#1383873) (dlehman)
+- Use all ancestors when adding RAID disks to exclusiveDisks (vtrefny)
+- Fix detection of linear MD RAID (vtrefny)
+- Add 'discard' option to crypttab for newly created LUKS (vpodzime)
+- Loop devices w/o backing file are now ignored (japokorn)
+- Set parted boot flag when creating EFI filesystem (vtrefny)
+- formats/fs: Set NTFS to be formattable (aszlig)
+- Do not try to search for 'tmpfs' devices in udev database (vtrefny)
+- Fix resize test in fstesting (vtrefny)
+- Fix task availability test (vtrefny)
+- Shallow copy another alignment property (#1408282) (awilliam)
+- Fix the test dependencies (vpodzime)
+- Add 'systemd-udev' to dependencies (#1392591) (vtrefny)
+
+* Sat Feb 11 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1:2.1.7-7
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
+
+* Sat Dec 24 2016 Adam Williamson <awilliam@redhat.com> - 1:2.1.7-6
+- Actually apply the patch mentioned in -5
+
+* Fri Dec 23 2016 Adam Williamson <awilliam@redhat.com> - 1:2.1.7-5
+- backport GH#530 to fix #1408282 (crash with Python 3.6)
+
+* Mon Dec 19 2016 Miro Hrončok <mhroncok@redhat.com> - 1:2.1.7-4
+- Rebuild for Python 3.6
+
+* Tue Dec  6 2016 Vratislav Podzimek <vpodzime@redhat.com> - 2.1.7-3
+- Add 'systemd-udev' to dependencies (#1392591) (vtrefny)
+
+* Mon Nov 21 2016 Vratislav Podzimek <vpodzime@redhat.com> - 2.1.7-2
 - Fix "unknown" SAS device sysfs parsing. (#1394026) (awilliam)
 
-* Mon Nov 07 2016 David Lehman <dlehman@redhat.com> - 2.1.6-3
-- Never update POT file as part of rpm build.
-
-* Mon Nov 07 2016 David Lehman <dlehman@redhat.com> - 2.1.6-2
-- Use correct type for port in GVariant tuple (awilliam)
-- iSCSI: Store auth info in NodeInfo tuples (awilliam)
+* Mon Nov 21 2016 Vratislav Podzimek <vpodzime@redhat.com> - 2.1.7-1
+- Require BlockDev 2.0 in the gi.require_version() call (vpodzime)
+- Fix detection of 'macefi' partitions (#1393846) (awilliam)
+- Add device symlinks to the PVs dictionary for MD RAID PVs (#1389130)
+  (vpodzime)
 - iSCSI: turn `iscsi.initiator_set` into a property (awilliam)
-- Add device symlinks to the PVs dictionary for MD RAID PVs (#1389130) (vpodzime)
+- iSCSI: Store auth info in NodeInfo tuples (awilliam)
+- Use correct type for port in GVariant tuple (awilliam)
+- Use a list comprehension for _to_node_infos (awilliam)
+- Device name now checked only for new devices (japokorn)
+- Remove several redundant teardown calls. (dlehman)
+- Cache and reuse data about multipath members (vpodzime)
+- Remove some obsolete pvscan calls. (dlehman)
 
 * Tue Oct 04 2016 David Lehman <dlehman@redhat.com> - 2.1.6-1
 - add missing populators to populator.helpers (awilliam)
