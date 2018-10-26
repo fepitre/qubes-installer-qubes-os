@@ -1,6 +1,6 @@
 Name:           pungi
-Version:        4.1.14
-Release:        2%{?dist}
+Version:        4.1.30
+Release:        1%{?dist}
 Epoch:          1000
 Summary:        Distribution compose tool
 
@@ -8,59 +8,77 @@ Group:          Development/Tools
 License:        GPLv2
 URL:            https://pagure.io/pungi
 Source0:        https://pagure.io/releases/%{name}/%{name}-%{version}.tar.bz2
-Patch1:         0001-Set-repository-gpgkey-option.patch
-Patch2:         0002-Verify-downloaded-packages.patch
-Patch3:         disable-efi.patch
-Patch4:         Hacky-way-to-pass-gpgkey-to-lorax.patch
-#Patch5:         fix-recursive-partition-table-on-iso-image.patch
-#Patch6:         disable-upgrade.patch
-BuildRequires:  python-nose, python-mock
-BuildRequires:  python-devel, python-setuptools, python2-productmd >= 1.3
-BuildRequires:  python-lockfile, kobo, kobo-rpmlib, python-kickstart, createrepo_c
-BuildRequires:  python-lxml, libselinux-python, yum-utils, lorax, python-rpm
-BuildRequires:  yum => 3.4.3-28, createrepo >= 0.4.11
-BuildRequires:  gettext, git-core, cvs
-BuildRequires:  python-jsonschema
-BuildRequires:  python-enum34
-BuildRequires:  python2-dnf
-BuildRequires:  python2-multilib
+Patch0:         0001-Set-repository-gpgkey-option.patch
+Patch1:         0002-Verify-downloaded-packages.patch
+Patch2:         disable-efi.patch
+Patch3:         Hacky-way-to-pass-gpgkey-to-lorax.patch
+
+BuildRequires:  python3-nose
+BuildRequires:  python3-mock
+BuildRequires:  python2-devel
+BuildRequires:  python3-devel
+BuildRequires:  python3-setuptools
+BuildRequires:  python3-productmd >= 1.17
+BuildRequires:  python3-kobo-rpmlib
+BuildRequires:  createrepo_c
+BuildRequires:  python3-lxml
+BuildRequires:  python3-kickstart
+BuildRequires:  python3-rpm
+BuildRequires:  python3-dnf
+BuildRequires:  python3-multilib
+BuildRequires:  python3-six
+BuildRequires:  git-core
+BuildRequires:  python3-jsonschema
+BuildRequires:  python3-enum34
+BuildRequires:  python3-libcomps
+BuildRequires:  python3-kobo
+BuildRequires:  python3-koji
+BuildRequires:  python3-unittest2
+BuildRequires:  lorax
+BuildRequires:  python3-PyYAML
+BuildRequires:  libmodulemd >= 1.3.0
+BuildRequires:  python3-gobject
+BuildRequires:  python3-pdc-client
+BuildRequires:  python3-createrepo_c
+BuildRequires:  python3-dogpile-cache
 
 #deps for doc building
-BuildRequires:  python-sphinx, texlive-latex-bin-bin, texlive-collection-fontsrecommended
-BuildRequires:  texlive-times, texlive-cmap, texlive-babel-english, texlive-fancyhdr
-BuildRequires:  texlive-fancybox, texlive-titlesec, texlive-framed, texlive-threeparttable
+BuildRequires:  python3-sphinx, texlive-collection-fontsrecommended
+BuildRequires:  texlive-cmap, texlive-babel-english, texlive-fancyhdr
+BuildRequires:  texlive-titlesec, texlive-framed, texlive-threeparttable
 BuildRequires:  texlive-mdwtools, texlive-wrapfig, texlive-parskip, texlive-upquote
-BuildRequires:  texlive-multirow, texlive-capt-of, texlive-eqparbox, tex(color.cfg)
+BuildRequires:  texlive-multirow, texlive-capt-of, texlive-eqparbox
 BuildRequires:  tex(fncychap.sty)
 BuildRequires:  tex(tabulary.sty)
+BuildRequires:  tex(needspace.sty)
+BuildRequires:  latexmk
 
-Requires:       createrepo >= 0.4.11
-Requires:       yum => 3.4.3-28
-Requires:       lorax >= 22.1
-Requires:       repoview
-Requires:       python-lockfile
-Requires:       kobo
-Requires:       kobo-rpmlib
-Requires:       python-productmd >= 1.3
-Requires:       python-kickstart
-Requires:       libselinux-python
+Requires:       python3-kobo >= 0.6
+Requires:       python3-kobo-rpmlib
+Requires:       python3-productmd >= 1.17
+Requires:       python3-kickstart
 Requires:       createrepo_c
-Requires:       python-lxml
+Requires:       python3-lxml
 Requires:       koji >= 1.10.1-13
-# This is optional do not Require it
-#eRquires:       jigdo
-Requires:       cvs
-Requires:       yum-utils
+Requires:       python3-koji-cli-plugins
 Requires:       isomd5sum
 Requires:       genisoimage
-Requires:       gettext
-# this is x86 only 
-#Requires:       syslinux
 Requires:       git
-Requires:       python-jsonschema
-Requires:       python-enum34
-Requires:       python2-dnf
-Requires:       python2-multilib
+Requires:       python3-jsonschema
+Requires:       python3-enum34
+Requires:       python3-dnf
+Requires:       python3-multilib
+Requires:       python3-libcomps
+Requires:       python3-six
+Requires:       python3-koji
+Requires:       libmodulemd >= 1.3.0
+Requires:       python3-gobject
+Requires:       python3-pdc-client
+Requires:       python3-createrepo_c
+Requires:       python3-PyYAML
+Requires:       python3-dogpile-cache
+
+Requires:       python3-%{name} = %{epoch}:%{version}-%{release}
 
 BuildArch:      noarch
 
@@ -69,7 +87,8 @@ A tool to create anaconda based installation trees/isos of a set of rpms.
 
 %package utils
 Summary:    Utilities for working with finished composes
-Requires:   pungi = %{version}-%{release}
+Requires:   pungi = %{epoch}:%{version}-%{release}
+Requires:   python3-fedmsg
 
 %description utils
 These utilities work with finished composes produced by Pungi. They can be used
@@ -77,42 +96,77 @@ for creating unified ISO images, validating config file or sending progress
 notification to Fedora Message Bus.
 
 
-%prep
-%setup -q
+%package legacy
+Summary:    Legacy pungi executable
+Requires:   %{name} = %{epoch}:%{version}-%{release}
+Requires:   python2-%{name} = %{epoch}:%{version}-%{release}
+Requires:   createrepo
+Requires:   isomd5sum
+Requires:   lorax
+Requires:   python2-functools
+Requires:   python2-kickstart
+Requires:   python2-kobo
+Requires:   python2-libselinux
+Requires:   python2-lockfile
+Requires:   python2-productmd >= 1.17
+Requires:   python2-six
+Requires:   repoview
+Requires:   xorriso
+Requires:   yum
+Requires:   yum-utils
 
-%patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-#%%patch5 -p1
-#%%patch6 -p1
+%description legacy
+Legacy pungi executable. This package depends on Python 2.
+
+
+%package -n python2-%{name}
+Summary:    Python 2 libraries for pungi
+
+%description -n python2-%{name}
+Python library with code for Pungi. This is not a public library and there are
+no guarantees about API stability.
+
+
+%package -n python3-%{name}
+Summary:    Python 3 libraries for pungi
+
+%description -n python3-%{name}
+Python library with code for Pungi. This is not a public library and there are
+no guarantees about API stability.
+
+
+%prep
+%autosetup -p1
 
 %build
-%{__python} setup.py build
+%py2_build
+%py3_build
 cd doc
-make latexpdf
-make epub
-make text
-make man
+make latexpdf SPHINXBUILD=/usr/bin/sphinx-build-3
+make epub     SPHINXBUILD=/usr/bin/sphinx-build-3
+make text     SPHINXBUILD=/usr/bin/sphinx-build-3
+make man      SPHINXBUILD=/usr/bin/sphinx-build-3
 gzip _build/man/pungi.1
 
 %install
-%{__python} setup.py install -O1 --skip-build --root %{buildroot}
+%py2_install
+mv %{buildroot}%{_bindir}/pungi %{buildroot}%{_bindir}/pungi-2
+%py3_install
+mv %{buildroot}%{_bindir}/pungi-2 %{buildroot}%{_bindir}/pungi
 %{__install} -d %{buildroot}/var/cache/pungi
 %{__install} -d %{buildroot}%{_mandir}/man1
 %{__install} -m 0644 doc/_build/man/pungi.1.gz %{buildroot}%{_mandir}/man1
 
+# No utils package for Python 2
+rm -rf %{buildroot}%{python2_sitelib}/%{name}_utils
+
 %check
-nosetests --exe
-./tests/data/specs/build.sh
-cd tests && ./test_compose.sh
+nosetests-3 --exe
 
 %files
 %license COPYING GPL
-%doc AUTHORS doc/_build/latex/Pungi.pdf doc/_build/epub/Pungi.epub doc/_build/text/*
-%{python_sitelib}/%{name}
-%{python_sitelib}/%{name}-%{version}-py?.?.egg-info
-%{_bindir}/%{name}
+%doc AUTHORS
+%doc doc/_build/latex/Pungi.pdf doc/_build/epub/Pungi.epub doc/_build/text/*
 %{_bindir}/%{name}-koji
 %{_bindir}/%{name}-gather
 %{_bindir}/comps_filter
@@ -121,15 +175,661 @@ cd tests && ./test_compose.sh
 %{_datadir}/pungi
 /var/cache/pungi
 
+%files -n python2-%{name}
+%{python2_sitelib}/%{name}
+%{python2_sitelib}/%{name}-%{version}-py?.?.egg-info
+
+%files -n python3-%{name}
+%{python3_sitelib}/%{name}
+%{python3_sitelib}/%{name}-%{version}-py?.?.egg-info
+
+%files legacy
+%{_bindir}/%{name}
+
 %files utils
-%{python_sitelib}/%{name}_utils
+%{python3_sitelib}/%{name}_utils
 %{_bindir}/%{name}-create-unified-isos
 %{_bindir}/%{name}-config-validate
 %{_bindir}/%{name}-fedmsg-notification
 %{_bindir}/%{name}-patch-iso
 %{_bindir}/%{name}-compare-depsolving
+%{_bindir}/%{name}-wait-for-signed-ostree-handler
 
 %changelog
+* Wed Oct 31 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.30-1
+- gather: Expand wildcards in Pungi (lsedlar)
+- repoclosure: Extract logs from hybrid solver (lsedlar)
+- gather: Track multilib that doesn't exist (lsedlar)
+- Get the NSVC from Koji module CG build metadata (jkaluza)
+- extra_iso: Include media.repo and .discinfo (lsedlar)
+- hybrid: Don't add debuginfo as langpacks (lsedlar)
+- fus: Write solvables to file (lsedlar)
+- hybrid: Honor filter_packages (lsedlar)
+- Include all test fixtures in source tarball (lsedlar)
+- extra-iso: Use correct efiboot.img file (lsedlar)
+- extra-iso: Fix treeinfo (lsedlar)
+- createiso: Move code for tweaking treeinfo into a function (lsedlar)
+- extra-iso: Generate jigdo by default (lsedlar)
+
+* Mon Oct 15 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.29-3
+- Save memory less agressively
+
+* Wed Oct 10 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.29-2
+- Add dependency on xorriso to pungi-legacy
+- Bump dependency on python-productmd
+
+* Wed Oct 10 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.29-1
+- hybrid: Only include modules that are not in lookaside (lsedlar)
+- Try to be more conservative about memory usage (lsedlar)
+- hybrid: Remove modules not listed by fus (lsedlar)
+- gather: Make devel modules configurable (lsedlar)
+- pkgset: Stop prefilling RPM artifacts (lsedlar)
+- gather: Create devel module for each normal module (lsedlar)
+- pkgset: Save package set for each module (lsedlar)
+- fus: List lookaside repos first (lsedlar)
+- gather: Work with repos without location_base (lsedlar)
+- Remove extra dependencies (lsedlar)
+- Set repodata mtime to SOURCE_DATE_EPOCH (marmarek)
+- Make sure .treeinfo file is sorted (marmarek)
+- Use constant MBR ID for isohybrid (marmarek)
+- Use xorriso instead of genisoimage (marmarek)
+- Use $SOURCE_DATE_EPOCH (if set) in discinfo file (marmarek)
+- unified_isos: Add extra variants to metadata (lsedlar)
+- extra_iso: Add list of variants to metadata (lsedlar)
+- linker: Simplify creating pool (lsedlar)
+- gather: Hide pid of fus process (lsedlar)
+- fus: Strip protocol from repo path (lsedlar)
+- Add 'pkgset_koji_builds' option to include extra builds in a compose
+  (jkaluza)
+- ostree: Reduce duplication in tests (lsedlar)
+- ostree: Use --touch-if-changed (lsedlar)
+- ostree: Fix handler crash without commit ID (lsedlar)
+- gather: Filter arches similarly to pkgset (lsedlar)
+- Stop shipping and remove RELEASE-NOTES (pbrobinson)
+
+* Thu Sep 06 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.28-1
+- gather: Fix multilib query for hybrid solver (lsedlar)
+- gather: Expand multilib lists for hybrid method (lsedlar)
+- Index arch modulemd by full NSVC (lsedlar)
+- pkgset: Apply whitelist to modules in the tag (lsedlar)
+- ostree: Wait for updated ref as well as signature (lsedlar)
+- extra_iso: Set unified flag in metadata (lsedlar)
+- pkgset: Respect koji event when searching for modules (lsedlar)
+- Use dogpile.cache to cache the listTaggedRPMS calls if possible (jkaluza)
+- gather: Keep original rpms.json in debug mode (lsedlar)
+- Reduce duplication in tests (lsedlar)
+- docs: Add better description for package globs (lsedlar)
+- Create non-bootable ISO for variant without buildinstall (lsedlar)
+- Clean up after yum tests (lsedlar)
+- gather: Honor module whitelist (lsedlar)
+- Clarify error about non-existing module (lsedlar)
+- gather: Print full unresolved dependency (lsedlar)
+- Fix tests on Python 2.6 (lsedlar)
+- Include all test data in tarball (lsedlar)
+
+* Fri Aug 17 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.27-1
+- extra-iso: Rename test data file (lsedlar)
+- createiso: Use correct python version (lsedlar)
+- ostree: Update tests for working with YAML file (lsedlar)
+- pungi/ostree: Convert rpm-ostree YAML to JSON (walters)
+- createrepo: Allow passing arbitrary arguments (lsedlar)
+- gather: Get modular packages from fus (lsedlar)
+- util: Remove escaping spaces from volume ID (lsedlar)
+- Allow removing non-alnum chars from volid (lsedlar)
+- extra-isos: Include treeinfo pointing to all variants (lsedlar)
+- createiso: Use unique paths for breaking hardlinks (lsedlar)
+- gather: Detect hybrid variant with additional packages (lsedlar)
+- Include exact version of pungi in the logs (mboddu)
+- gather: Allow empty result for gather (lsedlar)
+- gather: Add langpacks in hybrid solver (lsedlar)
+- comps: Add get_langpacks function (lsedlar)
+- pungi-legacy: Add --joliet-long option (lsedlar)
+- gather: Early exit for non-comps sources (lsedlar)
+- tests: Use unittest2 when available (lsedlar)
+- buildinstall: Make output world readable (lsedlar)
+- buildinstall: Copy file without preserving owner (lsedlar)
+- Report failed failable deliverables as errors (lsedlar)
+- Stop importing PDCClient (lsedlar)
+- spec: build require python-multilib (lsedlar)
+
+* Fri Jul 20 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.26-2
+- Backport patch for DNF 3 compatibility
+- Fix querying Koji about modules with dash in stream
+
+* Mon Jul 16 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.26-1
+- gather: Add a hybrid depsolver backend (lsedlar)
+- Always use lookasides for repoclosure (lsedlar)
+- doc: closing parentheses for require_all_comps_packages (kdreyer)
+- osbs: Generate unique repo names (lsedlar)
+- Expand version field during image_build using version_generator (sinny)
+- createrepo: Stop including modulemd in debug repos (lsedlar)
+- Simplify iterating over module defaults (lsedlar)
+- pkgset: Apply module filters on pkgset level (lsedlar)
+- init: Validate whitespace in comps groups (lsedlar)
+- createrepo: Include empty modules (lsedlar)
+- createiso: Break hardlinks by copying files (lsedlar)
+- pkgset: Query Koji instead of PDC (mcurlej)
+- config: Report variants validity issues (lsedlar)
+- variants: Reject values with whitespace (lsedlar)
+- osbs: Fresh koji session for getting metadata (lsedlar)
+- gather: Ignore comps in lookaside repo (lsedlar)
+- init: Test that init phase correctly clones defaults (lsedlar)
+- init: Add tests for cloning module defaults (lsedlar)
+- init: Add validation for module defaults (lsedlar)
+- ostree-installer: Skip comps repo if there are no comps (lsedlar)
+- Add test for getting licenses from a repo (lsedlar)
+- Add content_licenses to module metadata (sgallagh)
+- Update virtualenv instructions (lsedlar)
+- Allow extracting koji event from another compose (lsedlar)
+- Copy modules instead of reparsing them (sgallagh)
+- Silence config warnings in quiet mode (lsedlar)
+- osbs: Add nvr to metadata (lsedlar)
+- Always get old compose with release type suffix (patrick)
+- Make ostree_installer check if buildinstall is skipped correctly (puiterwijk)
+
+* Fri Jul 13 2018 Fedora Release Engineering <releng@fedoraproject.org> - 4.1.25-7
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
+
+* Wed Jul 04 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.25-6
+- Add dependency on python2-productmd to legacy subpackage
+
+* Mon Jun 18 2018 Miro Hrončok <mhroncok@redhat.com> - 4.1.25-5
+- Rebuilt for Python 3.7
+
+* Mon Jun 04 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.25-4
+- Call chmod recursively
+
+* Thu May 31 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.25-3
+- Don't mark all runroots as successful by chmod
+
+* Wed May 30 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.25-2
+- Make results of runroot tasks world readable
+
+* Tue May 22 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.25-1
+- comps-wrapper: Make tests pass on EL6 (lsedlar)
+- pkgset: Add option to ignore noarch in ExclusiveArch (lsedlar)
+- Handling multiple modules with the same NSV - PDC (onosek)
+- createrepo: Allow disabling SQLite database (lsedlar)
+- init: Drop database from comps repo (lsedlar)
+- createrepo: Add module arch to metadata (lsedlar)
+- arch: Drop mapping ppc64 -> ppc64p7 (lsedlar)
+- arch: Make i386 map to i686 instead of athlon (lsedlar)
+- Add a phase for creating extra ISOs (lsedlar)
+- Stop using .message attribute on exceptions (lsedlar)
+- Validation of parameter skip_phases (onosek)
+- Capture sigterm and mark the compose as DOOMED (puiterwijk)
+- createiso: Remove useless method (lsedlar)
+- createiso: Refactor code into smaller functions (lsedlar)
+- arch: Remove mocks in tests (lsedlar)
+- ostree-installer: Allow overwriting buildinstall (lsedlar)
+- ostree-installer: Work with skipped buildinstall (lsedlar)
+- createrepo: Use less verbose logs (lsedlar)
+- pkgset: Create global repo in parallel to merging pkgsets (lsedlar)
+- createiso: Skip if buildinstall fails (lsedlar)
+- Update tests for libmodulemd 1.4.0 (lsedlar)
+
+* Wed May 16 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.24-4
+- Use python function to copy ostree installer output
+
+* Thu May 10 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.24-3
+- Make wait-for-signed-ostree repeat the fedmsg in case the signer crashed
+- Stop filtering comps environments all the time
+
+* Fri May 04 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.24-2
+- Copy ostree-installer without preserving owner
+
+* Wed May 02 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.24-1
+- koji-wrapper: Log failed subtasks (lsedlar)
+- Update compose status when config validation fails (lsedlar)
+- pkgset: Allow different inheritance for modules (lsedlar)
+- ostree: Recognize force_new_commit option in old config (lsedlar)
+- modules: Correctly report error for unexpected modules (lsedlar)
+- modules: Allow context in variants XML (lsedlar)
+- gather: Print profiling information to stderr (lsedlar)
+- pkgset: Stop creating database for repodata (jkaluza)
+- gather: Use another variant as lookaside (lsedlar)
+- buildinstall: Use metadata if skipped (lsedlar)
+- Allow reusing pkgset FileCache from old composes. (jkaluza)
+- validation: Populate dict of all variants (lsedlar)
+- gather: Stop pulling debuginfo and source for lookaside packages (lsedlar)
+- Only use comps repo if we really have comps (lsedlar)
+- pkgset: Use modules PDC API (lsedlar)
+- Access ci_base date via compose (puiterwijk)
+- Allow filtering comps for different variants (lsedlar)
+- comps: Make filtering by attribute more generic (lsedlar)
+- pkgset: Dump downloaded modulemd to logs (lsedlar)
+- Fix PEP8 warning about if not x in y (lsedlar)
+- Variant as a lookaside - configuration (onosek)
+- Remove comps from arch repo (lsedlar)
+- init: Stop creating module defaults dir twice (lsedlar)
+- gather: Reduce logs from DNF gathering (lsedlar)
+- Clone module defaults into work/ directory (lsedlar)
+- Update the configuration JSON schema for module_defaults_dir (contyk)
+- Update configuration docs with module_defaults_dir (contyk)
+- Handle relative paths in module_defaults_dir (contyk)
+- Include module defaults in the repodata (contyk)
+- Add *.in fixtures to tarball (lsedlar)
+- init: Always filter comps file (lsedlar)
+- docs: Describe comps processing (lsedlar)
+- gather: Use comps for given variant (lsedlar)
+- docs: Fix typo (lsedlar)
+- Add all packages to whitelist for hybrid variant (lsedlar)
+- comps: Add tests for CompsFilter (lsedlar)
+- comps: Move filtering into wrapper module (lsedlar)
+- Tests fail if unittest2 library is missing (onosek)
+- Add unittest2 and rpmdevools to contributing doc (rmarshall)
+- pkgset: Construct UID for PDC modules (lsedlar)
+- gather: Simplify creating temporary directory (lsedlar)
+- buildinstall: Add extra repos (lsedlar)
+- tests: Use dummy modulesdir for DNF (lsedlar)
+- Update tests for Python 2.6 (onosek)
+
+* Tue Apr 24 2018 Kevin Fenzi <kevin@scrye.com> - 4.1.23-5
+- Backport fix for Accessing ci_base date via compose
+- https://pagure.io/pungi/pull-request/910
+
+* Thu Apr 12 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.23-4
+- Stop creating module defaults dir twice
+
+* Thu Apr 12 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.23-3
+- Add support for module defaults
+
+* Wed Apr 11 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.23-2
+- Revert reordering of ostree phases
+
+* Wed Apr 4 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.23-1
+- Update documentation section 'contributing' (onosek)
+- Write module metadata (onosek)
+- Support multilib in GatherSourceModule (jkaluza)
+- ostree: Always substitute basearch (lsedlar)
+- If sigkeys is specified, require at least one (puiterwijk)
+- Allow setting <kojitag/> in <modules/> in variants.xml to get the modules
+  from this Koji tag. (jkaluza)
+- Move Modulemd import to pungi/__init__.py to remove duplicated code.
+  (jkaluza)
+- Use Modulemd.Module for 'variant.arch_mmds' instead of yaml dump (jkaluza)
+- Fix modular content in non-modular variant (lsedlar)
+- Remove the filtered RPMs from module metadata even in case all RPMs are
+  filtered out. (jkaluza)
+- pkgset: Allow empty list of modules (lsedlar)
+- buildinstall: Add option to disable it (lsedlar)
+- Use libmodulemd instead of modulemd Python module (jkaluza)
+- gather: Fix package set whitelist (lsedlar)
+- pkgset: Merge initial package set without checks (lsedlar)
+- pkgset: Remove check for unique name (lsedlar)
+- gather: Honor package whitelist (lsedlar)
+- Write package whitelist for each variant (lsedlar)
+- image-build: Accept tar.xz extension for docker images (lsedlar)
+- pkgset: Correctly detect single tag for variant (lsedlar)
+- Remove comps groups from purely modular variants (lsedlar)
+- gather: Allow filtering debuginfo packages (lsedlar)
+- Move ostree phase and pipelines for running phases (onosek)
+- Other repo for OstreeInstaller (onosek)
+- Add modulemd metadata to repo even without components (jkaluza)
+- Correct fix for volume ID substition sorting by length (awilliam)
+- Ordering processing for volume ID substitutions (onosek)
+- Disable multilib for modules (jkaluza)
+- scm: Stop decoding output of post-clone command (lsedlar)
+- Remove useless shebang (lsedlar)
+- source_koji.py: Properly handle unset pkgset_koji_tag (otaylor)
+- pkgset: Only use package whitelist if enabled (lsedlar)
+- Fail early if input packages are unsigned (jkaluza)
+- Allow composing from tag with unsigned packages (jkaluza)
+- Ostree can use pkgset repos (onosek)
+- Support multiple sources in one variant (lsedlar)
+- gather: Set lookaside flag focorrectly (lsedlar)
+- gather: Try getting srpm from the same repo as rpm (lsedlar)
+- Minor correction for python backward compatibility (onosek)
+
+* Fri Mar 23 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-10.1
+- Always substitute basearch in ostree
+
+* Fri Mar 16 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-10
+- Fix package whitelist for non-modular variants
+
+* Wed Mar 14 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-9
+- Allow empty modular variants
+- Add option to disable multilib
+
+* Fri Mar 09 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-8
+- Fix package set whitelist
+
+* Thu Mar 08 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-7
+- image-build: Accept tar.xz extension for docker images
+- Allow multiple versions of the same package in package set
+
+* Tue Mar 06 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-6
+- Speed up compose with modules
+
+* Fri Mar 02 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-5
+- Remove comps groups from purely modular variants
+
+* Wed Feb 21 2018 Dennis Gilmore <dennis@ausil.us> - 4.1.22-4
+- make pungi-utils require python3-fedmsg
+
+* Tue Feb 06 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-3
+- Add support for mixing traditional and modular content
+
+* Mon Feb 5 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-2
+- Create a subpackage with legacy pungi command
+
+* Wed Jan 24 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.22-1
+- Better INFO messages about modules (onosek)
+- Updates composes should be marked as supported (lsedlar)
+- pkgset: Only add missing packages from global tag (lsedlar)
+- ostree/utils: Drop timestamps from generated repo names - tests (onosek)
+- ostree/utils: Generate a single pungi.repo file, use repo-<num> IDs (walters)
+- ostree/utils: Drop timestamps from generated repo names (walters)
+- gather: Do not require variant for module source (lsedlar)
+- gather: Comps source should not crash without comps file (lsedlar)
+- gather: JSON source returns nothing without configuration (lsedlar)
+- buildinstall: Fix treeinfo generating on failure (lsedlar)
+- Add buildinstall_use_guestmount boolean option (jkaluza)
+- gather: Use arch packages in nodeps method (lsedlar)
+- pkgset: Always use global tag if specified (lsedlar)
+- config: Make pkgset_koji_tag optional (lsedlar)
+- ostree: Add force_new_commit option - test added (onosek)
+- ostree: Add force_new_commit option (walters)
+- gather: Fix checking string type (lsedlar)
+- Improve logging for unsigned packages (onosek)
+- Fall back to mount if guestmount is not available (onosek)
+- El-Torito boot information on s390x (onosek)
+- Remove strace from buildinstall runroot (onosek)
+- doc: fix "Miscellaneous" spelling in Config section (kdreyer)
+- doc: move "Phases" up, "Contributing" down (kdreyer)
+
+* Tue Jan 16 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.21-4
+- Add option to force fallback from guestmount
+
+* Wed Jan 10 2018 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.21-3
+- Fix checking string type in nodeps method
+
+* Wed Dec 13 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.21-2
+- Remove /usr/bin/pungi
+- Remove dummy compose from check section
+
+* Wed Dec 06 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.21-1
+- tests: Use correct python version for config validation test (lsedlar)
+- Use dnf backend for repoclosure on PY3 (lsedlar)
+- Drop checks for git and cvs (lsedlar)
+- Relax check for gettext (lsedlar)
+- Drop check for repoquery command (lsedlar)
+- Use modifyrepo_c if possible (lsedlar)
+- pkgset: Add SRPMs to whitelist (lsedlar)
+- modules: Allow multilib (lsedlar)
+- add ability to specify ostree ref in OSTREE phase - update (onosek)
+- add ability to specify ostree ref in OSTREE phase (onosek)
+- buildinstall: Allow using external dire for runroot task (jkaluza)
+- pkgset: Remove package skip optimization for bootable products (lsedlar)
+- Add documentation for modular composes (lsedlar)
+- osbs: Get correct path to repo for addons (lsedlar)
+- Remove deprecated options (onosek)
+- module-source: Log details about what packages are gathered (lsedlar)
+- gather: Log details about nodeps method (lsedlar)
+- gather: get_packages_to_gather returns a tuple (lsedlar)
+- iso-wrapper: Fix calling wrong logger method (lsedlar)
+- Turn COMPOSE_ID version generator into DATE_RESPIN (puiterwijk)
+- iso-wrapper: Remove hacks for sorting (lsedlar)
+- Report missing module dependencies earlier (lsedlar)
+- Implement version.compose_id version generator (patrick)
+- Optionally do old_compose per release type (patrick)
+
+* Wed Nov 22 2017 Patrick Uiterwijk <puiterwijk@redhat.com> - 4.1.20-3
+- Backport patch for PR#790 - old_composes per release type
+- Backport patch for PR#791,796 - implement DATE_RESPIN version generator
+
+* Tue Nov 21 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.20-2
+- Fix crash in modular compose
+
+* Wed Nov 01 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.20-1
+- image-build: Drop suffixes from configuration (lsedlar)
+- kojiwrapper: Deal with multiple values for image-build (lsedlar)
+- Add modulemd to the missing module error (patrick)
+- notification: Add more info into the messages (lsedlar)
+- notification: Fix running on Python 3 (lsedlar)
+- remove remaining hard coded createrepo threads (onosek)
+- tests: Fix remaining missing assertions (lsedlar)
+- tests: Work with older unittest2 (lsedlar)
+- tests: Skip testing pdc logs if dependencies are not installed (lsedlar)
+- Log PDC communications and info for modular composes (dowang)
+- Update documentation section "Contributing to Pungi". (onosek)
+- Reject yum gather backend on Python 3 (lsedlar)
+- Stop using deprecated pipes.quote (lsedlar)
+- Convert configparser values to string (lsedlar)
+- Explicitly decode test files as UTF-8 (lsedlar)
+- Use universal_newlines when running other commands (lsedlar)
+- Port to Python 3 (lsedlar)
+- checks: Use list of release types from productmd (patrick)
+- Add an option to make pungi-koji print its compose_dir to stdout (patrick)
+- buildinstall: Expose template arguments for lorax (lsedlar)
+- Add support for new modules naming policy with colon delimiter (jkaluza)
+- Catch the issue when PDC does not contain RPMs, but the module definition
+  says there should be some. (jkaluza)
+- pkgset: Cherry-pick packages from Koji when we know already what packages
+  will end up in compose (jkaluza)
+- config: Allow comps_file for any gather_source (lsedlar)
+- pkgset: Allow unsigned packages by empty key (lsedlar)
+- gather: Nodeps should allow noarch packages (lsedlar)
+- pkgset: Clean up path generation (lsedlar)
+- createiso: Fix logging for media split (lsedlar)
+- Raise the Exception when a symlink cannot be created. (randy)
+- Use variant UID for subvariant fallback (lsedlar)
+- Fixup for opening config dumps (lsedlar)
+- Open and close file descriptors. (rbean)
+- live-images: Honor global settings for target (lsedlar)
+- unified-isos: Stop erasing metadata on failure (lsedlar)
+- Add directory name for checksum file (lsedlar)
+- createrepo: Allow customizing number of threads (lsedlar)
+- Make ostree installer before cloud images (lsedlar)
+
+* Mon Oct 23 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.19-4
+- Expose template arguments for lorax
+
+* Wed Oct 18 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.19-3
+- Allow comps_file for any gather_source
+
+* Mon Oct 02 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.19-2
+- Update dependencies for EPEL 7
+
+* Wed Sep 20 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.19-1
+- docs: Mention how input package list are interpreted (lsedlar)
+- Fix pungi-koji --version (dowang)
+- profiler: Fix sorting on Python 3 (lsedlar)
+- util: Fix timezone offset (lsedlar)
+- gather(dnf): Remove dead code (lsedlar)
+- gather(dnf): Don't exclude packages from lookaside (lsedlar)
+- gather(yum): Don't exclude packages from lookaside (lsedlar)
+- gather: Add tests for excluding packages from lookaside (lsedlar)
+- gather: Capture broken deps in test (lsedlar)
+- gather-dnf: Warn about unresolvable dependencies (lsedlar)
+- Fix formatting timezone offset (lsedlar)
+- Add timezone info into logs (lsedlar)
+- log: save imported config files too (qwan)
+- ostree-installer: Only run on empty variants (lsedlar)
+- Allow extracting profiling information from pungi-gather. (rbean)
+- createrepo: Only consider successful compose for deltas (lsedlar)
+- createrepo: Allow selecting variants for delta RPMs (lsedlar)
+- createrepo: Only create delta RPMs for binary repos (lsedlar)
+- image-build: add arch name(s) in image config file name (qwan)
+- Check for correct string class (lsedlar)
+- Open files as binary where needed (lsedlar)
+- buildinstall: No copy if task fails (lsedlar)
+- config: Allow setting default compose type (lsedlar)
+- Use Py3-compatible exception handling (lsedlar)
+- Use Python 3 print function (lsedlar)
+- docs: Abort update script on error (lsedlar)
+
+* Tue Aug 22 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.18-1
+- KojiWrapper: include serverca in session_opts (otaylor)
+- Report warning when config sections are not used (lsedlar)
+- pkgset: Download packages with dnf (lsedlar)
+- gather: Fix duplicated log line (lsedlar)
+- gather: Add fulltree-exclude flag to DNF backend (lsedlar)
+- checks: Stop looking for imports (lsedlar)
+- ostree: Simplify configuration (lsedlar)
+- config: Reduce duplication in schema (lsedlar)
+- config: Add option for dumping config schema (lsedlar)
+- scm: Accept unicode as local path (lsedlar)
+- docs: Add documentation for scm_dict (lsedlar)
+- scm-wrapper: Allow running command after git clone (lsedlar)
+- scm-wrapper: Test correct file lists are returned (lsedlar)
+- tests: Fix test_compose.sh paths (lsedlar)
+- gather: Only parse pungi log once (lsedlar)
+- gather: Report missing comps packages (lsedlar)
+- gather: Avoid reading whole log into memory (lsedlar)
+- repoclosure: Allow aborting compose when repoclosure fails (lsedlar)
+- repoclosure: Fix logging errors (lsedlar)
+- tests: Make test-compose cwd independent (lsedlar)
+- Make strict the only option. (rbean)
+- Raise a ValueError with details if module not found in PDC. (rbean)
+- unified-iso: Only link to non-empty variants (lsedlar)
+- gather: Fix excluding debugsource packages from input list (lsedlar)
+- gather: Add debugsource package to tests (lsedlar)
+- Use only one list of patterns/rules for debug packages (opensource)
+- Do not match "*-debugsource-*" as debuginfo package (opensource)
+- Use pungi.util.pkg_is_debug() instead of pungi.gather.is_debug() (opensource)
+- remove the dependency of rpmUtils (qwan)
+- Add support for debugsource packages (lsedlar)
+- gather: Don't pull multiple debuginfo packages (lsedlar)
+- GatherSourceModule: return rpm_obj instead of the rpm_obj.name (jkaluza)
+- gather: Stop requiring comps file in nodeps (lsedlar)
+
+* Wed Aug 09 2017 Dusty Mabe <dusty@dustymabe.com> - 4.1.17-4
+- Add requires on python3-koji-cli-plugins for koji runroot plugin
+
+* Thu Jul 27 2017 Fedora Release Engineering <releng@fedoraproject.org> - 4.1.17-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_27_Mass_Rebuild
+
+* Thu Jul 20 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.17-2
+- Fixes for modular compose with gather nodeps method
+
+* Mon Jul 17 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.17-1
+- checksum: Checksum each image only once (lsedlar)
+- checksum: Refactor creating checksum files (lsedlar)
+- createrepo: Don't use existing metadata with deltas (lsedlar)
+- util: Fix finding older compose (lsedlar)
+- createrepo: Use correct paths for old package dirs (lsedlar)
+- spec: Add missing ostree signature waiting handler (lsedlar)
+- docs: Minor improvements to documentation (lsedlar)
+- ostree: Add notification handler to wait for signature (lsedlar)
+- ostree: Add URL to repo to message (lsedlar)
+- gather: nodeps should take packages from comps groups (lsedlar)
+- unified-iso: handle empty arch (kdreyer)
+- createrepo: handle missing product ids scm dir (kdreyer)
+- comps_wrapper: Code clean up (lsedlar)
+- comps_filter: Filter environments by arch (pholica)
+- notification: Allow specifying multiple scripts (lsedlar)
+- pkgset: Allow populating packages from multiple koji tags (qwan)
+- pungi: Port to argparse (lsedlar)
+- comps_filter: Port to argparse (lsedlar)
+- variants-wrapper: Remove main() function (lsedlar)
+- multilib_yum: Remove main() function (lsedlar)
+- pungi-koji: Port to argparse (lsedlar)
+- ostree: Update tests for no ostree init (lsedlar)
+- ostree: Don't automatically create a repo (walters)
+- osbs: Config validation should accept a list (lsedlar)
+- pkgset: Use release number of a module (mcurlej)
+- docs: Add a basic info about gathering packages (lsedlar)
+- docs: Kobo can be installed via pip now (lsedlar)
+- docs: Add overview of what each phase does (lsedlar)
+- gather: Log tag from which we pulled a package (lsedlar)
+- docs: Document config file format (lsedlar)
+- docs: Move logo to _static subdir (lsedlar)
+- gather: Display source repo of packages (lsedlar)
+- pkgset: Use descriptive name for log file (lsedlar)
+- ostree-installer: Clean up output dir (lsedlar)
+- Ignore more pycodestyle warnings (lsedlar)
+- Allow gather source classes to return SimpleRpmWrapper objects from pkgset
+  phase directly. (jkaluza)
+- tests: use unittest2 if available (lsedlar)
+
+* Mon Jun 19 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.16-3
+- Add dropped livemedia phase
+
+* Tue Jun 13 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.16-2
+- Handle failed subtasks when getting Koji results
+
+* Mon Jun 12 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.16-1
+- Fix changelog generator script (lsedlar)
+- util: Retry resolving git branches (lsedlar)
+- arch: Move exclu(de|sive)arch check to a function (lsedlar)
+- gather-source: Check arch in module source (jkaluza)
+- koji-wrapper: Stop mangling env variables (lsedlar)
+- Ensure all phases are stopped (lsedlar)
+- comps-wrapper: Report unknown package types (lsedlar)
+- Generate proper modular metadata when there are different versions of the
+  same package in the variant (jkaluza)
+- checks: Make gpgkey a boolean option (lsedlar)
+- ostree: Refactor writing repo file (lsedlar)
+- iso-wrapper: Capture debug information for mounting (lsedlar)
+- comps-wrapper: Fix crash on conditional packages (lsedlar)
+- gather: Don't resolve dependencies in lookaside (lsedlar)
+- koji-wrapper: Run all blocking commands with fresh ccache (lsedlar)
+- Add @retry decorator and use it to retry connection on PDC on IOError and in
+  SCM's retry_run. (jkaluza)
+- Remove shebang from non-executable files (lsedlar)
+
+* Mon Jun 05 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.15-2
+- Ensure proper exit on failure
+
+* Fri May 05 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.15-1
+- pkgset: Remove use of undefined variable (lsedlar)
+- Store RPM artifacts in resulting repository in modulemd metadata. (jkaluza)
+- variants: Remove redundant check (lsedlar)
+- compose: Stop duplicating variant types (lsedlar)
+- gather: Remove handling of impossible state (lsedlar)
+- gather: Clean up code (lsedlar)
+- gather: Add tests for gather phase (lsedlar)
+- scm-wrapper: Remove unused arguments (lsedlar)
+- tests: Avoid creating unused temporary files (lsedlar)
+- tests: Clean up persistent temporary data (lsedlar)
+- docs: Add a logo on the About page (lsedlar)
+- docs: Document origin of the name (lsedlar)
+- gather-dnf: Log exact Requires pulling a package in (lsedlar)
+- gather: Print specific Requires which pulls a package in (lsedlar)
+- gather: Process dependencies sorted (lsedlar)
+- koji-wrapper: Run koji runroot with fresh credentials cache (lsedlar)
+- util: Move get_buildroot_rpms to koji wrapper (lsedlar)
+- osbs: Make git_branch required option (lsedlar)
+- docs: Update createrepo_checksum allowed values (lsedlar)
+- extra-files: Allow configuring used checksums (lsedlar)
+- doc: Document options for media checksums (lsedlar)
+- config: Add sha512 as valid createrepo checksum (lsedlar)
+- util: Report better error on resolving non-existing branch (lsedlar)
+- util: Show choices for volid if all are too long (lsedlar)
+- checks: Fix anyOf validator yield ValidationError on ConfigOptionWarning
+  (qwan)
+- comps-wrapper: Reduce duplication in code (lsedlar)
+- comps-wrapper: Port to libcomps (lsedlar)
+- comps-wrapper: Sort langpacks by name (lsedlar)
+- comps-wrapper: Minor code cleanup (lsedlar)
+- comps-wrapper: Add tests (lsedlar)
+- comps-wrapper: Fix uservisible not being modifiable (lsedlar)
+- comps-wrapper: Return IDs instead of yum.comps.Group (lsedlar)
+- comps-wrapper: Remove unused code (lsedlar)
+- Be explicit about generating release for images (lsedlar)
+- docs: Add examples for generated versions (lsedlar)
+- ostree: Autogenerate a version (lsedlar)
+- Expand compatible arches when gathering from modules. (rbean)
+- gather: Clean up method deps (lsedlar)
+- gather: Report error if there is no input (lsedlar)
+- init: Warn when variants mentions non-existing comps group (lsedlar)
+- Fix createrepo issue for modular compose when multiple threads tried to use
+  the same tmp directory. (jkaluza)
+- unified-iso: Use different type for debuginfo iso (lsedlar)
+- unified-iso: Handle missing paths in metadata (lsedlar)
+- unify repo and repo_from options (qwan)
+- Fix some PEP8 errors in util.py (qwan)
+- move translate_path from paths.py to util.py (qwan)
+- checks.py: support 'append' option (qwan)
+- checks.py: show warning message for alias option (qwan)
+
+* Thu Apr 13 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.14-3
+- Expand compatible arches when gathering from modules
+
+* Tue Apr 11 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.14-2
+- Fix createrepo issue for modular compose
+
 * Tue Mar 28 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.14-1
 - Not create empty skeleton dirs for empty variants (qwan)
 - Query only active modules in PDC. (jkaluza)
