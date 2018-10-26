@@ -18,11 +18,12 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  src/sbin/lorax         | 10 ++++++++++
  2 files changed, 12 insertions(+), 2 deletions(-)
 
+
 diff --git a/src/pylorax/cmdline.py b/src/pylorax/cmdline.py
-index 69b6ccb..855d9f3 100644
+index 738c6019..c8aba332 100644
 --- a/src/pylorax/cmdline.py
 +++ b/src/pylorax/cmdline.py
-@@ -41,7 +41,7 @@ def lorax_parser():
+@@ -36,7 +36,7 @@ def lorax_parser(dracut_default=""):
      required.add_argument("-p", "--product", help="product name", required=True, metavar="PRODUCT")
      required.add_argument("-v", "--version", help="version identifier", required=True, metavar="VERSION")
      required.add_argument("-r", "--release", help="release information", required=True, metavar="RELEASE")
@@ -31,23 +32,23 @@ index 69b6ccb..855d9f3 100644
                          metavar="REPOSITORY", action="append", default=[])
      required.add_argument("--repo", help="source dnf repository file", type=os.path.abspath,
                            dest="repos", metavar="REPOSITORY", action="append", default=[])
-@@ -49,7 +49,7 @@ def lorax_parser():
+@@ -44,7 +44,7 @@ def lorax_parser(dracut_default=""):
      # optional arguments
      optional = parser.add_argument_group("optional arguments")
      optional.add_argument("-m", "--mirrorlist",
 -                        help="mirrorlist repository (may be listed multiple times)",
 +                        help="mirrorlist repository (may be listed multiple times), append gpgkey URL in brackets to enable package verification",
                          metavar="REPOSITORY", action="append", default=[])
-     optional.add_argument("-t", "--variant",
+     optional.add_argument("-t", "--variant", default="",
                          help="variant name", metavar="VARIANT")
 diff --git a/src/sbin/lorax b/src/sbin/lorax
-index df4994d..12061b4 100755
+index 6f2f716c..dffb53a5 100755
 --- a/src/sbin/lorax
 +++ b/src/sbin/lorax
-@@ -212,6 +212,11 @@ def get_dnf_base_object(installroot, sources, mirrorlists=None, repos=None,
+@@ -236,6 +236,11 @@ def get_dnf_base_object(installroot, sources, mirrorlists=None, repos=None,
              continue
          repo_name = "lorax-repo-%d" % i
-         repo = dnf.repo.Repo(repo_name, cachedir)
+         repo = dnf.repo.Repo(repo_name, conf)
 +        if '(' in r and ')' in r:
 +            assert r[-1] == ')'
 +            r, gpgkey = r[:-1].split('(')
@@ -56,10 +57,10 @@ index df4994d..12061b4 100755
          repo.baseurl = [r]
          if proxy:
              repo.proxy = proxy
-@@ -232,6 +237,11 @@ def get_dnf_base_object(installroot, sources, mirrorlists=None, repos=None,
+@@ -256,6 +261,11 @@ def get_dnf_base_object(installroot, sources, mirrorlists=None, repos=None,
              continue
          repo_name = "lorax-mirrorlist-%d" % i
-         repo = dnf.repo.Repo(repo_name, cachedir)
+         repo = dnf.repo.Repo(repo_name, conf)
 +        if '(' in r and ')' in r:
 +            assert r[-1] == ')'
 +            r, gpgkey = r[:-1].split('(')
@@ -70,4 +71,3 @@ index df4994d..12061b4 100755
              repo.proxy = proxy
 -- 
 2.7.4
-
