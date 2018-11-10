@@ -2,7 +2,7 @@
 
 Summary: Graphical system installer
 Name:    anaconda
-Version: 25.20.9
+Version: 29.24.7
 Release: 13%{?dist}
 License: GPLv2+ and MIT
 Epoch:   1000
@@ -18,62 +18,51 @@ Source0: %{name}-%{version}.tar.bz2
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-Patch1: 0001-anaconda-add-Qubes-installclass.patch
-Patch2: 0002-anaconda-add-Qubes-post-scripts.patch
-Patch3: 0003-anaconda-remove-other-installclasses.patch
-Patch4: 0004-anaconda-do-not-start-network-during-install-set-def.patch
-Patch5: 0005-anaconda-remove-network-setup-from-text-interface.patch
-Patch6: 0006-anaconda-fix-grub-config-setup-by-removing-non-xen-o.patch
-Patch7: 0007-anaconda-make-encrypted-partitions-by-default.patch
-Patch8: 0008-anaconda-set-default-grub-theme.patch
-Patch9: 0009-anaconda-add-options-can_dual_boot-and-can_update-to.patch
-Patch10: 0010-anaconda-efimgr-specify-root-iutil.getSysroot.patch
-Patch11: 0011-anaconda-generate-xen-efi-configuration.patch
-Patch12: 0012-anaconda-fix-dracut-module-to-work-with-reduced-depe.patch
-Patch13: 0013-anaconda-use-installer-kernel-parameters-as-default-.patch
-Patch14: 0014-anaconda-use-kernel-install-instead-of-grubby-to-reg.patch
-Patch15: 0015-anaconda-Fix-a-regular-expression-determining-Releas.patch
-Patch16: 0016-anaconda-Do-not-fail-during-initramfs-start-up-due-t.patch
-Patch17: 0017-anaconda-Disable-the-NTP-configuration-spoke.patch
-Patch18: 0018-anaconda-drop-useless-on-Qubes-dependencies-on-netwo.patch
-Patch19: 0019-anaconda-skip-NTP-installation-and-setup-in-dom0.patch
-Patch20: 0020-anaconda-don-t-force-non-encrypted-boot-on-coreboot-.patch
-Patch21: 0021-anaconda-switch-default-partitioning-scheme-to-LVM-T.patch
-Patch22: 0022-anaconda-add-console-none-Xen-parameter.patch
-Patch23: 0023-anaconda-add-dom0_mem-min-1024M-to-default-xen-cmdli.patch
-Patch24: 0024-anaconda-limit-dom0-maxmem-to-4GB-to-limit-its-overh.patch
-Patch25: 0025-anaconda-disable-iommu-for-IGFX.patch
-Patch26: 0026-anaconda-check-for-virtualization-features.patch
-Patch27: 0027-anaconda-generate-proper-extlinux.conf.patch
-Patch28: 0028-anaconda-don-t-crash-when-no-target-disk-is-availabl.patch
-Patch29: 0029-anaconda-consider-Interrupt-Remapping-as-required-fe.patch
-Patch30: 0030-anaconda-lock-root-account-by-default.patch
-Patch31: 0031-anaconda-add-option-to-lock-root-account.patch
-Patch32: 0032-anaconda-check-add-user-to-wheel-and-qubes-groups.patch
-Patch33: 0033-anaconda-Modify-user-configuration-spoke-for-QubesOS.patch
-Patch34: 0034-anaconda-Make-sure-that-a-user-is-created-at-install.patch
-Patch35: 0035-anaconda-xen.efi-upgraded-during-each-install.patch
-Patch36: 0036-anaconda-make-sure-the-latest-version-is-placed-as-x.patch
-Patch37: 0037-anaconda-update-message-about-unusupported-hardware.patch
-Patch38: 0038-anaconda-check-also-for-message-about-AMD-interrupt-.patch
-Patch39: 0039-anaconda-Remove-in-memory-kickstart-representation-f.patch
-Patch40: 0040-anaconda-fix-default-scheme-in-custom-partitioning.patch
-Patch41: 0041-anaconda-fix-interrupt-remapping-detection.patch
-Patch42: 0042-anaconda-Fix-macOS-EFI-Installation.patch
-Patch43: 0043-anaconda-use-proper-subvolume-argument-when-booting-.patch
-Patch44: 0044-anaconda-enable-discard-option-for-dom0-filesystems-.patch
-Patch45: 0045-anaconda-Add-ucode-scan-to-default-Xen-command-line.patch
-Patch46: 0046-anaconda-avoid-adding-duplicated-kernel-entries.patch
-Patch47: 0047-anaconda-Fix-System-Requirements-URL-and-typo-in-har.patch
-Patch48: 0048-anaconda-save-keyboard-layout-to-udev.patch
-Patch49: 0049-anaconda-fix-root-password-dialog.patch
-Patch50: 0050-anaconda-mark-qubes-user-name-as-reserved.patch
-Patch51: 0051-anaconda-add-smt-off-xen-option-during-installation.patch
-Patch52: 0052-anaconda-update-Qubes-specific-code-for-Fedora-21-ve.patch
-Patch53: 0053-anaconda-require-user-password-being-set.patch
-Patch54: 0054-anaconda-abort-installation-on-X-startup-fail.patch
-Patch55: 0055-anaconda-fix-encryption-passphrase-check.patch
-Patch56: 0056-anaconda-disable-os-prober.patch
+Patch0: anaconda-add-Qubes-installclass.patch
+Patch1: anaconda-add-Qubes-post-scripts.patch
+Patch2: anaconda-remove-other-installclasses.patch
+Patch3: anaconda-do-not-start-network-during-install-set-def.patch
+Patch4: anaconda-remove-network-setup-from-text-interface.patch
+Patch5: anaconda-fix-grub-config-setup-by-removing-non-xen-o.patch
+Patch6: anaconda-make-encrypted-partitions-by-default.patch
+Patch7: anaconda-set-default-grub-theme.patch
+Patch8: anaconda-add-options-can_dual_boot-and-can_update-to.patch
+Patch9: anaconda-efimgr-specify-root-util.getSysroot.patch
+Patch10: anaconda-generate-xen-efi-configuration.patch
+Patch11: anaconda-fix-dracut-module-to-work-with-reduced-depe.patch
+Patch12: anaconda-use-installer-kernel-parameters-as-default-.patch
+Patch13: anaconda-use-kernel-install-instead-of-grubby-to-reg.patch
+Patch14: anaconda-Fix-a-regular-expression-determining-Releas.patch
+Patch15: anaconda-Do-not-fail-during-initramfs-start-up-due-t.patch
+Patch16: anaconda-Disable-the-NTP-configuration-spoke.patch
+Patch17: anaconda-drop-useless-on-Qubes-dependencies-on-netwo.patch
+Patch18: anaconda-skip-NTP-installation-and-setup-in-dom0.patch
+Patch19: anaconda-add-skip_grub-parameter-and-allow-boot-encr.patch
+Patch20: anaconda-switch-default-partitioning-scheme-to-LVM-T.patch
+Patch21: anaconda-add-console-none-Xen-parameter.patch
+Patch22: anaconda-add-dom0_mem-min-1024M-to-default-xen-cmdli.patch
+Patch23: anaconda-limit-dom0-maxmem-to-4GB-to-limit-its-overh.patch
+Patch24: anaconda-disable-iommu-for-IGFX.patch
+Patch25: anaconda-check-for-Qubes-OS-hardware-required-featur.patch
+Patch26: anaconda-generate-proper-extlinux.conf.patch
+Patch27: anaconda-don-t-crash-when-no-target-disk-is-availabl.patch
+Patch28: anaconda-lock-root-account-by-default.patch
+Patch29: anaconda-add-option-to-lock-root-account.patch
+Patch30: anaconda-check-add-user-to-wheel-and-qubes-groups.patch
+Patch31: anaconda-Make-sure-that-a-user-is-created-at-install.patch
+Patch32: anaconda-xen.efi-upgraded-during-each-install.patch
+Patch33: anaconda-make-sure-the-latest-version-is-placed-as-x.patch
+Patch34: anaconda-fix-default-scheme-in-custom-partitioning.patch
+Patch35: anaconda-Fix-macOS-EFI-Installation.patch
+Patch36: anaconda-use-proper-subvolume-argument-when-booting-.patch
+Patch37: anaconda-enable-discard-option-for-dom0-filesystems-.patch
+Patch38: anaconda-Add-ucode-scan-to-default-Xen-command-line.patch
+Patch39: anaconda-avoid-adding-duplicated-kernel-entries.patch
+Patch40: anaconda-mark-qubes-user-name-as-reserved.patch
+Patch41: anaconda-add-smt-off-xen-option-during-installation.patch
+Patch42: anaconda-update-Qubes-specific-code-for-Fedora-21-ve.patch
+Patch43: anaconda-abort-installation-on-X-startup-fail.patch
+Patch44: anaconda-fix-encryption-passphrase-check.patch
 
 # Versions of required components (done so we make sure the buildrequires
 # match the requires versions of things).
