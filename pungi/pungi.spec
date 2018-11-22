@@ -15,15 +15,20 @@ Patch4:         Hacky-way-to-pass-gpgkey-to-lorax.patch
 #Patch5:         fix-recursive-partition-table-on-iso-image.patch
 #Patch6:         disable-upgrade.patch
 BuildRequires:  python-nose, python-mock
-BuildRequires:  python-devel, python-setuptools, python2-productmd >= 1.3
+BuildRequires:  python-devel, python-setuptools, python2-productmd
 BuildRequires:  python-lockfile, kobo, kobo-rpmlib, python-kickstart, createrepo_c
-BuildRequires:  python-lxml, libselinux-python, yum-utils, lorax, python-rpm
+BuildRequires:  python-lxml, libselinux-python, yum-utils, lorax
 BuildRequires:  yum => 3.4.3-28, createrepo >= 0.4.11
 BuildRequires:  gettext, git-core, cvs
 BuildRequires:  python-jsonschema
 BuildRequires:  python-enum34
 BuildRequires:  python2-dnf
 BuildRequires:  python2-multilib
+BuildRequires:  python2-libcomps
+BuildRequires:  python2-six
+BuildRequires:  python2-multilib
+BuildRequires:  python2-dogpile-cache
+BuildRequires:  latexmk
 
 #deps for doc building
 BuildRequires:  python-sphinx, texlive-latex-bin-bin, texlive-collection-fontsrecommended
@@ -39,28 +44,30 @@ Requires:       yum => 3.4.3-28
 Requires:       lorax >= 22.1
 Requires:       repoview
 Requires:       python-lockfile
-Requires:       kobo
+Requires:       kobo >= 0.6
 Requires:       kobo-rpmlib
-Requires:       python-productmd >= 1.3
+Requires:       python-productmd >= 1.11
 Requires:       python-kickstart
 Requires:       libselinux-python
 Requires:       createrepo_c
+Requires:       python3-createrepo_c
 Requires:       python-lxml
 Requires:       koji >= 1.10.1-13
-# This is optional do not Require it
-#eRquires:       jigdo
+Requires:       jigdo
 Requires:       cvs
 Requires:       yum-utils
 Requires:       isomd5sum
-Requires:       genisoimage
+Requires:       xorriso
 Requires:       gettext
-# this is x86 only 
-#Requires:       syslinux
+Requires:       syslinux
 Requires:       git
 Requires:       python-jsonschema
 Requires:       python-enum34
 Requires:       python2-dnf
 Requires:       python2-multilib
+Requires:       python2-libcomps
+Requires:       python2-six
+Requires:       python2-dogpile-cache
 
 BuildArch:      noarch
 
@@ -102,12 +109,9 @@ gzip _build/man/pungi.1
 %{__install} -d %{buildroot}%{_mandir}/man1
 %{__install} -m 0644 doc/_build/man/pungi.1.gz %{buildroot}%{_mandir}/man1
 
-%check
-nosetests --exe
-./tests/data/specs/build.sh
-cd tests && ./test_compose.sh
 
 %files
+%defattr(-,root,root,-)
 %license COPYING GPL
 %doc AUTHORS doc/_build/latex/Pungi.pdf doc/_build/epub/Pungi.epub doc/_build/text/*
 %{python_sitelib}/%{name}
@@ -118,8 +122,8 @@ cd tests && ./test_compose.sh
 %{_bindir}/comps_filter
 %{_bindir}/%{name}-make-ostree
 %{_mandir}/man1/pungi.1.gz
-%{_datadir}/pungi
-/var/cache/pungi
+%{_datadir}/%{name}
+/var/cache/%{name}
 
 %files utils
 %{python_sitelib}/%{name}_utils
@@ -128,6 +132,12 @@ cd tests && ./test_compose.sh
 %{_bindir}/%{name}-fedmsg-notification
 %{_bindir}/%{name}-patch-iso
 %{_bindir}/%{name}-compare-depsolving
+%{_bindir}/%{name}-wait-for-signed-ostree-handler
+
+%check
+nosetests --exe
+./tests/data/specs/build.sh
+cd tests && ./test_compose.sh
 
 %changelog
 * Tue Mar 28 2017 Lubomír Sedlář <lsedlar@redhat.com> - 4.1.14-1
