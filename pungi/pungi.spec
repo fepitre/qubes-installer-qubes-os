@@ -38,6 +38,7 @@ BuildRequires:  texlive-mdwtools, texlive-wrapfig, texlive-parskip, texlive-upqu
 BuildRequires:  texlive-multirow, texlive-capt-of, texlive-eqparbox, tex(color.cfg)
 BuildRequires:  tex(fncychap.sty)
 BuildRequires:  tex(tabulary.sty)
+BuildRequires:  texlive-needspace
 
 Requires:       createrepo >= 0.4.11
 Requires:       yum => 3.4.3-28
