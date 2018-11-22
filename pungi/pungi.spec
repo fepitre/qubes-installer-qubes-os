@@ -29,6 +29,8 @@ BuildRequires:  python2-six
 BuildRequires:  python2-multilib
 BuildRequires:  python2-dogpile-cache
 BuildRequires:  latexmk
+BuildRequires:  python2-createrepo_c
+BuildRequires:  python3-createrepo_c
 
 #deps for doc building
 BuildRequires:  python-sphinx, texlive-latex-bin-bin, texlive-collection-fontsrecommended
