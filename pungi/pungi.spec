@@ -12,6 +12,7 @@ Patch0:         0001-Set-repository-gpgkey-option.patch
 Patch1:         0002-Verify-downloaded-packages.patch
 Patch2:         disable-efi.patch
 Patch3:         Hacky-way-to-pass-gpgkey-to-lorax.patch
+Patch4:         0001-fix-import-ConfigParser.patch
 
 BuildRequires:  python3-nose
 BuildRequires:  python3-mock
@@ -115,6 +116,7 @@ Requires:   xorriso
 Requires:   yum
 Requires:   yum-utils
 Requires:   python2-createrepo
+Requires:   python2-configparser
 
 %description legacy
 Legacy pungi executable. This package depends on Python 2.
