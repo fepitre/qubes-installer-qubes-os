@@ -114,6 +114,7 @@ Requires:   repoview
 Requires:   xorriso
 Requires:   yum
 Requires:   yum-utils
+Requires:   python2-createrepo
 
 %description legacy
 Legacy pungi executable. This package depends on Python 2.
