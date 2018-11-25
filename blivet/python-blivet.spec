@@ -1,11 +1,5 @@
-%bcond_without python3
-
-%if 0%{?fedora} > 28
-# disable python2 by default
-%bcond_with python2
-%else
 %bcond_without python2
-%endif
+%bcond_without python3
 
 Summary:  A python module for system storage configuration
 Name: python-blivet
