@@ -1,4 +1,9 @@
-%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
+%bcond_without python2
+
+# Disable tests by default because they fail to run inside mock builds
+# at the moment, but can run locally.  To build and run tests, do:
+#     rpmbuild -ba --with runtests pykickstart.spec
+%bcond_with runtests
 
 Name:      pykickstart
 Version:   3.16
@@ -22,23 +27,24 @@ Source0: %{name}-%{version}.tar.gz
 Patch0: 0001-Add-gpgkey-option-to-repo-command.patch
 BuildArch: noarch
 
-
 BuildRequires: gettext
+%if %{with python2}
 BuildRequires: python2-coverage
 BuildRequires: python2-devel
 BuildRequires: python2-nose
 BuildRequires: python2-ordered-set
 BuildRequires: python2-setuptools
 BuildRequires: python2-requests
+%endif
 
 BuildRequires: python3-coverage
 BuildRequires: python3-devel
-BuildRequires: python3-mypy
 BuildRequires: python3-nose
 BuildRequires: python3-ordered-set
 BuildRequires: python3-requests
 BuildRequires: python3-setuptools
 BuildRequires: python3-six
+BuildRequires: python3-sphinx
 
 Requires: python3-kickstart = %{epoch}:%{version}-%{release}
 
@@ -47,16 +53,20 @@ Python utilities for manipulating kickstart files.  The Python 2 and 3 libraries
 can be found in the packages python-kickstart and python3-kickstart
 respectively.
 
+%if %{with python2}
 # Python 2 library
 %package -n python2-kickstart
+%{?python_provide:%python_provide python2-kickstart}
+%{?python_provide:%python_provide python2-pykickstart}
 Summary:  Python 2 library for manipulating kickstart files.
-Requires: python-six
-Requires: python-requests
-Requires: python-ordered-set
+Requires: python2-six
+Requires: python2-requests
+Requires: python2-ordered-set
 
 %description -n python2-kickstart
 Python 2 library for manipulating kickstart files.  The binaries are found in
 the pykickstart package.
+%endif
 
 # Python 3 library
 %package -n python3-kickstart
@@ -74,31 +84,36 @@ the pykickstart package.
 
 %patch0 -p1
 
+%if %{with python2}
 rm -rf %{py3dir}
 mkdir %{py3dir}
 cp -a . %{py3dir}
+%endif
 
 %build
+%if %{with python2}
 make PYTHON=%{__python2}
-
-pushd %{py3dir}
+make -C %{py3dir} PYTHON=%{__python3}
+%else
 make PYTHON=%{__python3}
-popd
+%endif
 
 %install
-rm -rf %{buildroot}
+%if %{with python2}
 make PYTHON=%{__python2} DESTDIR=%{buildroot} install
-
-pushd %{py3dir}
+make -C %{py3dir} PYTHON=%{__python3} DESTDIR=%{buildroot} install
+%else
 make PYTHON=%{__python3} DESTDIR=%{buildroot} install
-popd
+%endif
 
 %check
-#make PYTHON=%{__python2} test
-
-pushd %{py3dir}
+%if %{with runtests}
+%if %{with python2}
+make -C %{py3dir} PYTHON=%{__python3} test
+%else
 make PYTHON=%{__python3} test
-popd
+%endif
+%endif
 
 %files
 %license COPYING
@@ -113,12 +128,14 @@ popd
 %{_mandir}/man1/ksvalidator.1.gz
 %{_mandir}/man1/ksverdiff.1.gz
 
+%if %{with python2}
 %files -n python2-kickstart
 %doc docs/2to3
 %doc docs/programmers-guide
 %doc docs/kickstart-docs.txt
 %{python2_sitelib}/pykickstart*.egg-info
 %{python2_sitelib}/pykickstart
+%endif
 
 %files -n python3-kickstart
 %doc docs/2to3
