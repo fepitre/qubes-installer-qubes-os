@@ -3,9 +3,10 @@
 
 <%page args="root, basearch, libdir, configdir"/>
 <%
-PYTHONDIR = sorted(glob("usr/"+libdir+"/python?.?"))[0]
 stubs = ("list-harddrives", "raidstart", "raidstop")
 configdir = configdir + "/common"
+import os, time
+SOURCE_DATE_EPOCH = os.environ.get('SOURCE_DATE_EPOCH', str(int(time.time())))
 %>
 
 ## move_stubs()
@@ -49,6 +50,9 @@ systemctl mask fedora-configure.service fedora-loadmodules.service \
                systemd-tmpfiles-clean.service systemd-tmpfiles-clean.timer \
                ldconfig.service
 
+## remove because it cannot be disabled
+remove usr/lib/systemd/system-generators/lvm2-activation-generator
+
 ## Remove the more terrible parts of systemd-tmpfiles.
 ## etc.conf is written with the assumption that /etc/ is empty, which is
 ## ridiculous, and it also creates a broken /etc/resolv.conf, which breaks
@@ -91,9 +95,6 @@ append etc/passwd "install:x:0:0:root:/root:/usr/libexec/anaconda/run-anaconda"
 append etc/shadow "install::14438:0:99999:7:::"
 ## remove root password
 replace "root:\*:" "root::" etc/shadow
-
-## gconf settings
-gconfset /desktop/gnome/interface/accessibility bool true
 
 ## gsettings settings
 install ${configdir}/org.gtk.Settings.Debug.gschema.override usr/share/glib-2.0/schemas
