@@ -4,12 +4,10 @@
 installpkg python
 
 ## anaconda package
-installpkg anaconda anaconda-widgets
-## anaconda deps that aren't in the RPM
-installpkg tmux
+installpkg anaconda anaconda-widgets kexec-tools-anaconda-addon anaconda-install-env-deps
 ## Other available payloads
 installpkg dnf
-installpkg rpm-ostree
+installpkg rpm-ostree ostree
 ## speed up compression on multicore systems
 installpkg pigz
 
@@ -25,33 +23,47 @@ installpkg glibc-all-langpacks
 
 ## arch-specific packages (bootloaders etc.)
 %if basearch == "aarch64":
-    installpkg efibootmgr grub2-efi grub2-efi-modules grub2-tools shim
+    installpkg efibootmgr
+    installpkg grub2-efi-aa64-cdboot shim-aa64
+    installpkg uboot-tools
 %endif
 %if basearch in ("arm", "armhfp"):
+    installpkg efibootmgr
+    installpkg grub2-efi-arm-cdboot
+    installpkg grubby-deprecated
     installpkg kernel-lpae
     installpkg uboot-tools
 %endif
 %if basearch == "i386":
-    installpkg kernel-PAE gpart
+    installpkg gpart
 %endif
 %if basearch == "x86_64":
-    installpkg efibootmgr grub2-efi grub2-efi-modules shim
+    installpkg grub2-tools-efi
+    installpkg efibootmgr
+    installpkg shim-x64 grub2-efi-x64-cdboot
+    installpkg shim-ia32 grub2-efi-ia32-cdboot
 %endif
 %if basearch in ("i386", "x86_64"):
-    installpkg grub2 grub2-tools memtest86+ syslinux syslinux-nonlinux
+    installpkg biosdevname memtest86+ syslinux
+    installpkg grub2-tools grub2-tools-minimal grub2-tools-extra
 %endif
 %if basearch in ("ppc", "ppc64", "ppc64le"):
-    installpkg grub2 grub2-tools fbset hfsutils kernel-bootwrapper ppc64-utils
+    installpkg fbset hfsutils powerpc-utils lsvpd ppc64-diag
+    installpkg grub2-tools grub2-tools-minimal grub2-tools-extra
+    installpkg grub2-${basearch}
 %endif
 %if basearch == "s390x":
-    installpkg lsscsi s390utils-base s390utils-cmsfs-fuse
+    installpkg lsscsi s390utils-base s390utils-cmsfs-fuse s390utils-hmcdrvfs
 %endif
 
 ## yay, plymouth
 installpkg plymouth
 
 ## extra dracut modules
-installpkg anaconda-dracut dracut-network dracut-config-generic
+installpkg anaconda-dracut dracut-network dracut-config-generic dracut-fips
+
+## import-state.service for switchroot
+installpkg initscripts
 
 ## rescue needs this
 installpkg cryptsetup
@@ -79,7 +91,7 @@ installpkg nm-connection-editor
 installpkg librsvg2
 
 ## filesystem tools
-installpkg btrfs-progs jfsutils xfsprogs reiserfs-utils ntfs-3g ntfsprogs
+installpkg btrfs-progs jfsutils xfsprogs reiserfs-utils gfs2-utils ntfs-3g ntfsprogs
 installpkg system-storage-manager
 installpkg device-mapper-persistent-data
 installpkg xfsdump
@@ -103,10 +115,14 @@ installpkg bridge-utils
 ## hardware utilities/libraries
 installpkg pciutils usbutils ipmitool
 installpkg mt-st smartmontools
-%if basearch != "s390x":
-installpkg hdparm pcmciautils
+installpkg hdparm
+%if basearch not in ("aarch64", "ppc64le", "s390x"):
+installpkg pcmciautils
 %endif
-installpkg libmlx4 rdma
+## see bug #1483278
+%if basearch not in ("arm", "armhfp"):
+    installpkg libmlx4 rdma-core
+%endif
 installpkg rng-tools
 
 ## fonts & themes
@@ -135,16 +151,21 @@ installpkg gnome-icon-theme-legacy
 installpkg aajohan-comfortaa-fonts
 installpkg abattis-cantarell-fonts
 installpkg sil-scheherazade-fonts
+installpkg jomolhari-fonts
+installpkg khmeros-base-fonts
+installpkg sil-padauk-fonts
+installpkg google-noto-sans-cjk-ttc-fonts
 installpkg qubes-artwork
 
 ## debugging/bug reporting tools
 installpkg gdb-gdbserver
 installpkg libreport-plugin-bugzilla libreport-plugin-reportuploader
 installpkg fpaste
+installpkg python3-pyatspi
 
 ## extra tools not required by anaconda
 installpkg vim-minimal strace lsof dump xz less eject
-installpkg wget rsync rsh bind-utils ftp mtr vconfig
+installpkg wget rsync bind-utils ftp mtr vconfig
 installpkg icfg spice-vdagent
 installpkg gdisk hexedit sg3_utils
 
