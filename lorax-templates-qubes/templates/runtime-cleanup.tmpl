@@ -65,7 +65,7 @@ removepkg avahi-autoipd coreutils-libs dash db4-utils diffutils file
 removepkg genisoimage info iptables
 removepkg jasper-libs libXxf86misc
 removepkg libasyncns libhbaapi libhbalinux
-removepkg libmcpp libpcap libtiff linux-atm-libs
+removepkg libmcpp libtiff linux-atm-libs
 removepkg lvm2-libs m4 mailx makebootfat mcpp
 removepkg mingetty mobile-broadband-provider-info pkgconfig ppp pth
 removepkg rmt rpcbind squashfs-tools system-config-firewall-base
@@ -105,7 +105,7 @@ removekmod sound drivers/media drivers/hwmon \
 ## Also keep virtio-rng so that the installer can get sufficient randomness for
 ## LUKS setup.
 removekmod drivers/char --allbut virtio_console hw_random \
-                                  virtio-rng ipmi
+                                  virtio-rng ipmi hmcdrv
 removekmod drivers/hid --allbut hid-logitech-dj hid-logitech-hidpp
 removekmod drivers/video --allbut hyperv_fb syscopyarea sysfillrect sysimgblt fb_sys_fops
 remove lib/modules/*/{build,source,*.map}
@@ -188,6 +188,7 @@ removefrom file-libs /usr/share/*
 removefrom findutils /usr/bin/oldfind /usr/share/*
 removefrom fontconfig /usr/bin/*
 removefrom gawk /usr/bin/{igawk,pgawk} /usr/libexec/* /usr/share/*
+removefrom gdb /usr/share/* /usr/include/* /etc/gdbinit*
 removefrom gdisk /usr/share/*
 removefrom gdk-pixbuf2 /usr/share/locale*
 removefrom gfs2-utils /usr/sbin/*
@@ -203,12 +204,14 @@ removefrom glibc /usr/libexec/* /usr/sbin/*
 removefrom glibc-common /etc/* /usr/bin/catchsegv /usr/bin/gencat
 removefrom glibc-common /usr/bin/getent
 removefrom glibc-common /usr/bin/locale /usr/bin/rpcgen /usr/bin/sprof
-removefrom glibc-common /usr/bin/tzselect /usr/bin/localedef
+# NB: we keep /usr/bin/localedef so anaconda can inspect payload locale info
+removefrom glibc-common /usr/bin/tzselect
 removefrom glibc-common /usr/libexec/* /usr/sbin/*
 removefrom gmp /usr/${libdir}/libgmpxx.* /usr/${libdir}/libmp.*
 removefrom gnome-bluetooth-libs /usr/${libdir}/libgnome-bluetooth*
 removefrom gnome-bluetooth-libs /usr/share/*
 removefrom gnutls /usr/share/locale/*
+removefrom google-noto-sans-cjk-ttc-fonts /usr/share/fonts/google-noto-cjk/NotoSansCJK-{Black,Bold,*Light,Medium,Thin}.ttc
 removefrom grep /etc/* /usr/share/locale/*
 removefrom gstreamer /usr/bin/* /usr/${libdir}/gstreamer-0.10/*
 removefrom gstreamer /usr/${libdir}/libgst* /usr/libexec/* /usr/share/locale/*
@@ -258,7 +261,11 @@ removefrom mtools /etc/*
 removefrom ncurses /usr/bin/captoinfo /usr/bin/infocmp /usr/bin/infotocap
 removefrom ncurses /usr/bin/reset /usr/bin/tabs /usr/bin/tic /usr/bin/toe
 removefrom ncurses /usr/bin/tput /usr/bin/tset
-removefrom ncurses-libs /usr/${libdir}/libform* /usr/${libdir}/libmenu*
+removefrom ncurses-libs /usr/${libdir}/libform*
+## libmenu.so is needed by lp_diag binary from ppc64-diag which is a PowerPc specific package
+%if basearch not in ("ppc", "ppc64", "ppc64le"):
+    removefrom ncurses-libs /usr/${libdir}/libmenu*
+%endif
 removefrom ncurses-libs /usr/${libdir}/libpanel.* /usr/${libdir}/libtic*
 removefrom net-tools */bin/netstat */sbin/ether-wake */sbin/ipmaddr
 removefrom net-tools */sbin/iptunnel */sbin/mii-diag */sbin/mii-tool
@@ -276,7 +283,6 @@ removefrom nfs-utils /usr/sbin/rpc.svcgssd /usr/sbin/rpcdebug
 removefrom nfs-utils /usr/sbin/showmount /usr/sbin/sm-notify
 removefrom nfs-utils /usr/sbin/start-statd /var/lib/nfs/etab
 removefrom nfs-utils /var/lib/nfs/rmtab /var/lib/nfs/state /var/lib/nfs/xtab
-removefrom nhn-nanum-gothic-fonts /usr/share/fonts/nhn-nanum/NanumGothic*Bold.ttf
 removefrom nss-softokn /usr/${libdir}/nss/*
 removefrom openldap /etc/openldap/* /usr/${libdir}/libldap_r-*
 removefrom openssh /usr/libexec/*
@@ -314,7 +320,7 @@ removefrom util-linux --allbut \
     /usr/bin/{dmesg,getopt,kill,login,lsblk,more,mount,umount,mountpoint,findmnt} \
     /etc/mtab /etc/pam.d/login /etc/pam.d/remote \
     /usr/sbin/{agetty,blkid,blockdev,clock,fdisk,fsck,fstrim,hwclock,losetup} \
-    /usr/sbin/{mkswap,nologin,sfdisk,swapoff,swapon,wipefs,partx,fsfreeze} \
+    /usr/sbin/{mkswap,swaplabel,nologin,sfdisk,swapoff,swapon,wipefs,partx,fsfreeze} \
     /usr/bin/{logger,hexdump,flock}
 removefrom volume_key-libs /usr/share/locale/*
 removefrom wget /etc/* /usr/share/locale/*
@@ -332,6 +338,11 @@ removefrom ${product.name}-logos /usr/share/{firstboot,gnome-screensaver,kde4,pi
 ## cleanup_python_files()
 runcmd find ${root} -name "*.pyo" -type f -delete
 runcmd find ${root} -name "*.pyc" -type f -exec ln -sf /dev/null {} \;
+
+## cleanup /boot/ leaving vmlinuz, and .*hmac files
+runcmd chroot ${root} find /boot \! -name "vmlinuz*" \
+                            -and \! -name ".vmlinuz*" \
+                            -and \! -name boot -delete
 
 ## remove any broken links in /etc or /usr
 ## (broken systemd service links lead to confusing noise at boot)
