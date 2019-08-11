@@ -1,18 +1,14 @@
 before_script:
-    - sudo bash -c 'for m in $(mount | grep qubes-builder/chroot | awk "{print $3}"); do umount $m; done'
-    - sudo rm -rf qubes-builder
-
-after_script:
-    - make -C qubes-builder clean-chroot $ENV_BUILD
+    - make -C $BUILDDIR/qubes-builder-latest-iso clean-chroot $ENV_BUILD
 
 qubesos-r4.0:
   variables:
     ENV_BUILD: 'RELEASE=4.0 DIST_DOM0=fc25 BRANCH_installer_qubes_os=release4.0'
   script:
-    - git clone https://github.com/QubesOS/qubes-builder
-    - cp qubes-builder/release-configs/qubes-os-iso-full-online.conf qubes-builder/builder.conf
-    - make -C qubes-builder get-sources-git $ENV_BUILD COMPONENTS="installer-qubes-os linux-yum builder-rpm"
-    - sed -i 's#\(<packagereq type="\)optional\(">kernel-latest.*$\)#\1mandatory\2#' qubes-builder/qubes-src/installer-qubes-os/conf/comps-qubes.xml
-    - make -C qubes-builder iso $ENV_BUILD
-    - make -C qubes-builder sign-iso $ENV_BUILD
-    - make -C qubes-builder upload-iso $ENV_BUILD
+    - git clone https://github.com/QubesOS/qubes-builder $BUILDDIR/qubes-builder-latest-iso
+    - cp $BUILDDIR/qubes-builder-latest-iso/release-configs/qubes-os-iso-full-online.conf $BUILDDIR/qubes-builder-latest-iso/builder.conf
+    - make -C $BUILDDIR/qubes-builder-latest-iso get-sources-git $ENV_BUILD COMPONENTS="installer-qubes-os linux-yum builder-rpm"
+    - sed -i 's#\(<packagereq type="\)optional\(">kernel-latest.*$\)#\1mandatory\2#' $BUILDDIR/qubes-builder-latest-iso/qubes-src/installer-qubes-os/conf/comps-qubes.xml
+    - make -C $BUILDDIR/qubes-builder-latest-iso iso $ENV_BUILD
+    - make -C $BUILDDIR/qubes-builder-latest-iso sign-iso $ENV_BUILD
+    - make -C $BUILDDIR/qubes-builder-latest-iso upload-iso $ENV_BUILD
