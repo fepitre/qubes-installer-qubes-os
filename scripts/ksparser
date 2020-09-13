@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import sys
-import pungi.ks
+import pykickstart
+
+from pykickstart.parser import *
+from pykickstart.version import makeVersion
+from pykickstart.commands.repo import F27, F27_Repo, F27_RepoData
 
 from jinja2 import Environment
 
@@ -45,10 +48,49 @@ def get_args():
     return parser.parse_args()
 
 
+class Qubes_RepoData(F27_RepoData):
+    removedKeywords = F27_RepoData.removedKeywords
+    removedAttrs = F27_RepoData.removedAttrs
+
+    def __init__(self, *args, **kwargs):
+        F27_RepoData.__init__(self, *args, **kwargs)
+        self.gpgkey = kwargs.get("gpgkey", "")
+
+    def _getArgsAsStr(self):
+        retval = F27_RepoData._getArgsAsStr(self)
+
+        if self.gpgkey:
+            retval += " --gpgkey=\"%s\"" % self.gpgkey
+
+        return retval
+
+
+class Qubes_Repo(F27_Repo):
+    removedKeywords = F27_Repo.removedKeywords
+    removedAttrs = F27_Repo.removedAttrs
+
+    def __init__(self, *args, **kwargs):
+        F27_Repo.__init__(self, *args, **kwargs)
+
+    def _getParser(self):
+        op = F27_Repo._getParser(self)
+        op.add_argument("--gpgkey", action="store", version=F27,
+                        help="Specify GPG key to used to the corresponding repo")
+
+        return op
+
+
+pykickstart.commands.repo.F30_Repo = Qubes_Repo
+pykickstart.commands.repo.F30_RepoData = Qubes_RepoData
+
+
 def main():
     args = get_args()
     if args.ks:
-        ksparser = pungi.ks.get_ksparser(args.ks)
+        handler = makeVersion()
+        ksparser = KickstartParser(handler)
+        ksparser.readKickstart(args.ks)
+
         repo_content = ''
 
         if args.extract_repo_conf_to:
@@ -60,7 +102,8 @@ def main():
                 with open(args.extract_repo_conf_to, 'w') as repo_fd:
                     repo_fd.write(repo_content)
             except EnvironmentError:
-                print("Cannot write repo file to %s" % args.extract_repo_conf_to)
+                print(
+                    "Cannot write repo file to %s" % args.extract_repo_conf_to)
                 return 1
 
         if args.extract_packages_to:
@@ -75,7 +118,8 @@ def main():
                 with open(args.extract_packages_to, 'w') as pkgs_fd:
                     pkgs_fd.write(' '.join(packages))
             except EnvironmentError:
-                print("Cannot write packages list to %s" % args.extract_packages_to)
+                print(
+                    "Cannot write packages list to %s" % args.extract_packages_to)
                 return 1
 
 
