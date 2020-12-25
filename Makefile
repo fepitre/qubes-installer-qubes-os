@@ -47,7 +47,7 @@ DNF_ROOT := /tmp/dnfroot
 DNF_REPO := $(DNF_ROOT)/etc/yum.repos.d/installer.repo
 DNF_PACKAGES := $(DNF_ROOT)/tmp/packages.list
 DNF_OPTS := -y --releasever=$(DIST_VER) --installroot=$(DNF_ROOT)
-DNF_OPTS += --downloaddir=$(BASE_DIR)/os/Packages --downloadonly install
+DNF_OPTS += --setopt=*.module_hotfixes=true --downloaddir=$(BASE_DIR)/os/Packages --downloadonly install
 
 LORAX := /usr/sbin/lorax
 LORAX_OPTS := --product "Qubes OS" --variant "qubes" --macboot --force --rootfs-size=4
@@ -93,7 +93,12 @@ iso-prepare:
 
 	# Copy Fedora key to DNF installroot
 	mkdir -p $(DNF_ROOT)/etc/pki/rpm-gpg
-	cp $(INSTALLER_DIR)/qubes-release/RPM-GPG-KEY-fedora-$(DIST_VER)-primary $(DNF_ROOT)/etc/pki/rpm-gpg
+	cp $(INSTALLER_DIR)/qubes-release/RPM-GPG-KEY-centosofficial $(DNF_ROOT)/etc/pki/rpm-gpg
+	cp $(INSTALLER_DIR)/qubes-release/RPM-GPG-KEY-EPEL-8 $(DNF_ROOT)/etc/pki/rpm-gpg
+
+	# copy non-release keys
+	cp $(INSTALLER_DIR)/qubes-release/RPM-GPG-KEY-copr-epel-8 $(DNF_ROOT)/etc/pki/rpm-gpg
+	cp $(INSTALLER_DIR)/qubes-release/RPM-GPG-KEY-copr-epel-8 /etc/pki/rpm-gpg
 
 	# Provide qubes-release/conf for Qubes keys
 	mkdir -p $(DNF_ROOT)/tmp/qubes-installer

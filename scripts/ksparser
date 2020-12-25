@@ -17,6 +17,9 @@ baseurl={{ks_repo.baseurl}}
 {%- if ks_repo.metalink %}
 metalink={{ks_repo.metalink}}
 {%- endif -%}
+{%- if ks_repo.mirrorlist %}
+mirrorlist={{ks_repo.mirrorlist}}
+{% endif -%}
 {%- if ks_repo.gpgkey %}
 gpgcheck=1
 gpgkey={{ks_repo.gpgkey}}
